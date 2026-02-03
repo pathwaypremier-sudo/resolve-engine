@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  invariants:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Check Types (Compile Safe)
+      run: npm run check:types
+
+    - name: Check Copy Compliance (No Advice)
+      run: npm run check:copy
+
+    - name: Check Vertical Leaks
+      run: npm run check:verticals
+
+    - name: Snapshot Triggers Check
+      run: npm run check:triggers

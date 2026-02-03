@@ -1,0 +1,126 @@
+[
+  {
+    "scenarioId": "S1",
+    "description": "Council + PROVIDED + Strong extraction (simulated)",
+    "input": {
+      "verticalId": "MOTORING_PARKING",
+      "disputeType": "COUNCIL_PCN",
+      "evidenceStatus": "PROVIDED",
+      "answers": {
+        "issuer": "London Borough of Camden",
+        "reference": "CU12345678",
+        "notice_date": "2023-10-01",
+        "event_date": "2023-10-01",
+        "summary": "Parked on yellow line",
+        "contact_status": "NO"
+      }
+    },
+    "activeQuestionIds": [
+      "contact_status",
+      "council_appealed",
+      "council_stage",
+      "desired_outcome",
+      "event_date",
+      "issuer",
+      "notice_date",
+      "reference",
+      "summary"
+    ]
+  },
+  {
+    "scenarioId": "S2",
+    "description": "Council + NONE_DECLARED + Manual (no extraction)",
+    "input": {
+      "verticalId": "MOTORING_PARKING",
+      "disputeType": "COUNCIL_PCN",
+      "evidenceStatus": "NONE_DECLARED",
+      "answers": {
+        "issuer": "Camden"
+      }
+    },
+    "activeQuestionIds": [
+      "contact_status",
+      "copies_kept",
+      "council_appealed",
+      "council_stage",
+      "desired_outcome",
+      "event_date",
+      "issuer",
+      "notice_date",
+      "ref_check",
+      "reference",
+      "summary"
+    ]
+  },
+  {
+    "scenarioId": "S3",
+    "description": "Private + PROVIDED + Partial extraction",
+    "input": {
+      "verticalId": "MOTORING_PARKING",
+      "disputeType": "PRIVATE_PARKING",
+      "evidenceStatus": "PROVIDED",
+      "answers": {
+        "issuer": "Parking Eye",
+        "reference": "123456"
+      }
+    },
+    "activeQuestionIds": [
+      "contact_status",
+      "desired_outcome",
+      "event_date",
+      "issuer",
+      "notice_date",
+      "private_appealed",
+      "private_notice_type",
+      "reference",
+      "summary"
+    ]
+  },
+  {
+    "scenarioId": "S4",
+    "description": "Not sure + PROVIDED + Conflicting hints",
+    "input": {
+      "verticalId": "MOTORING_PARKING",
+      "disputeType": "NOT_SURE",
+      "evidenceStatus": "PROVIDED",
+      "answers": {
+        "summary": "Received a ticket"
+      }
+    },
+    "activeQuestionIds": [
+      "contact_status",
+      "council_stage",
+      "desired_outcome",
+      "dispute_type_guess",
+      "event_date",
+      "issuer",
+      "notice_date",
+      "ref_check",
+      "reference",
+      "summary"
+    ]
+  },
+  {
+    "scenarioId": "S5",
+    "description": "Not sure + NONE_DECLARED + Minimal",
+    "input": {
+      "verticalId": "MOTORING_PARKING",
+      "disputeType": "NOT_SURE",
+      "evidenceStatus": "NONE_DECLARED",
+      "answers": {}
+    },
+    "activeQuestionIds": [
+      "contact_status",
+      "copies_kept",
+      "council_stage",
+      "desired_outcome",
+      "dispute_type_guess",
+      "event_date",
+      "issuer",
+      "notice_date",
+      "ref_check",
+      "reference",
+      "summary"
+    ]
+  }
+]

@@ -1,0 +1,15 @@
+export const tokens = {
+    textBody: "text-sm leading-6",
+    textMuted: "text-sm leading-6 text-muted-foreground",
+    textPageTitle: "text-xl font-semibold leading-7 text-zinc-900 sm:text-2xl sm:tracking-tight",
+    textTitle: "text-lg font-semibold leading-7 text-zinc-900 tracking-tight",
+    textSectionTitle: "text-sm font-medium leading-6 text-zinc-900",
+    textLabel: "text-xs font-medium text-zinc-500",
+    container: "mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8",
+    containerNarrow: "mx-auto w-full max-w-4xl",
+    containerAuth: "mx-auto w-full max-w-sm space-y-8",
+    sectionGap: "space-y-8",
+    panelGap: "space-y-6",
+    inputGap: "space-y-4",
+    badge: "inline-flex items-center rounded-md px-2 py-1 text-xs font-medium ring-1 ring-inset",
+};

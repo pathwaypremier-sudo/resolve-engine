@@ -1,0 +1,145 @@
+/* Print Stylesheet */
+@media print {
+
+    /* GLOBAL RESETS */
+    @page {
+        margin: 1.5cm;
+        size: auto;
+    }
+
+    body {
+        background: #fff !important;
+        color: #000 !important;
+        font-size: 11pt !important;
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+        line-height: 1.4 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* LAYOUT CLEANUP */
+    .min-h-screen {
+        min-height: auto !important;
+    }
+
+    main {
+        padding: 0 !important;
+        max-width: none !important;
+        margin: 0 !important;
+    }
+
+    /* HIDE NON-ESSENTIALS */
+    header,
+    /* App header */
+    nav,
+    /* Navigation bars */
+    button,
+    /* All buttons */
+    input,
+    /* All inputs */
+    select,
+    /* All selects */
+    [role="button"],
+    /* Interactive elements */
+    a[href^="#"],
+    /* Internal anchors */
+    .no-print,
+    /* Explicit utility class */
+    footer,
+    aside {
+        display: none !important;
+    }
+
+    /* Hide specific UI components that don't make sense in print */
+    [data-radix-collection-item],
+    /* Tab triggers */
+    [aria-pressed] {
+        /* Toggle buttons like redacted eye */
+        display: none !important;
+    }
+
+    /* Exception: Make sure link text is still black */
+    a {
+        color: #000 !important;
+        text-decoration: underline;
+    }
+
+    /* SPECIFIC COMPONENT TWEAKS */
+
+    /* Panels: Remove shadows, borders becomes simple lines */
+    .bg-white,
+    .bg-zinc-50,
+    .bg-zinc-900 {
+        background: transparent !important;
+        color: #000 !important;
+    }
+
+    /* Remove shadows and rounded corners for crisper print */
+    * {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+
+    /* Ensure borders are visible but thin */
+    .border,
+    .border-t,
+    .border-b,
+    .border-l,
+    .border-r,
+    .border-zinc-100,
+    .border-zinc-200,
+    .border-zinc-800 {
+        border-color: #000 !important;
+        border-width: 1px !important;
+    }
+
+    /* TIMELINE */
+    ul,
+    ol {
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    li {
+        break-inside: avoid;
+    }
+
+    /* TABLE / LISTS */
+    table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+
+    th,
+    td {
+        border: 1px solid #000 !important;
+        padding: 4px !important;
+    }
+
+    /* ALERTS / CALLOUTS */
+    .bg-amber-50,
+    .bg-blue-50,
+    .bg-red-50,
+    .bg-green-50 {
+        background: white !important;
+        border: 1px solid #000 !important;
+    }
+
+    .text-amber-800,
+    .text-blue-700,
+    .text-red-700,
+    .text-green-700 {
+        color: #000 !important;
+        font-weight: bold;
+    }
+
+    /* UTILITIES */
+    .print-show {
+        display: block !important;
+    }
+
+    /* FORCE VISIBILITY FOR DETAILS */
+    details[open]>summary~* {
+        display: block !important;
+    }
+}
