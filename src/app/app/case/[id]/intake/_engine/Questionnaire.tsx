@@ -58,6 +58,7 @@ export default function Questionnaire({
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const [activeGroup, setActiveGroup] = useState<QGroup>("CORE");
     const [suggestions, setSuggestions] = useState<Suggestions>({ issuer: null, reference: null, date: null });
+    const [showErrors, setShowErrors] = useState(false);
 
     const disputeType = readDisputeType(caseId) || undefined;
 
@@ -124,6 +125,11 @@ export default function Questionnaire({
     }
 
     function handleContinue() {
+        if (missingRequired) {
+            setShowErrors(true);
+            return;
+        }
+        setShowErrors(false);
         if (activeGroup === "CORE") {
             setActiveGroup("PROCEDURE");
         } else {
@@ -201,6 +207,9 @@ export default function Questionnaire({
                                     {q.required ? <span className="text-zinc-400"> (required)</span> : null}
                                 </label>
                                 {q.help ? <p className="mt-1 text-xs text-zinc-500">{q.help}</p> : null}
+                                {showErrors && q.required && !(answers[q.key]?.trim()) && (
+                                    <p className="mt-1 text-xs text-red-600">This field is required</p>
+                                )}
                             </div>
                         </div>
 
@@ -279,10 +288,15 @@ export default function Questionnaire({
                     Back
                 </button>
 
+                {showErrors && missingRequired && (
+                    <p className="text-sm text-red-600">
+                        Please fill in all required fields to continue.
+                    </p>
+                )}
+
                 <button
                     type="button"
-                    disabled={missingRequired}
-                    className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-40"
+                    className="rounded-xl bg-zinc-900 px-4 py-2 text-sm text-white hover:bg-zinc-800"
                     onClick={handleContinue}
                 >
                     Continue

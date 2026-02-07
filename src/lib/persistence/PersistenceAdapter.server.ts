@@ -1,10 +1,7 @@
 // server-side only logic for sqlite persistence
 import { sqliteDb } from "./sqliteDb";
 import { PersistenceAdapter } from "./PersistenceAdapter";
-import { validateProductionGuards } from "@/lib/ops/productionGuards.server";
 
-// Run safety checks once on module load in server context
-validateProductionGuards();
 
 class SqlitePersistenceAdapter implements PersistenceAdapter {
     get(key: string): string | null {

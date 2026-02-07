@@ -1,8 +1,34 @@
 "use server";
 
 import { getStorageProvider } from "@/lib/storage";
+import { isUploadsEnabled } from "@/lib/ops/settings.server";
+import { requireWriteAccess } from "@/lib/ops/maintenanceGuard.server";
 
-export async function uploadFileAction(formData: FormData) {
+type UploadResult =
+    | { ok: true; uri: string; checksumSha256: string; sizeBytes: number; storedAtIso: string }
+    | { ok: false; error: string; status: 503 };
+
+export async function uploadFileAction(formData: FormData): Promise<UploadResult> {
+    // Check maintenance mode first
+    const maintenanceCheck = await requireWriteAccess();
+    if (!maintenanceCheck.ok) {
+        return {
+            ok: false,
+            error: maintenanceCheck.message,
+            status: 503
+        };
+    }
+
+    // Check if uploads are enabled
+    const uploadsEnabled = await isUploadsEnabled();
+    if (!uploadsEnabled) {
+        return {
+            ok: false,
+            error: "File uploads are temporarily disabled. Please try again later.",
+            status: 503
+        };
+    }
+
     const caseId = formData.get("caseId") as string;
     const docId = formData.get("docId") as string;
     const file = formData.get("file") as File;
@@ -27,6 +53,7 @@ export async function uploadFileAction(formData: FormData) {
 
     // Return the result for client state
     return {
+        ok: true,
         uri: result.uri,
         checksumSha256: result.checksumSha256,
         sizeBytes: result.sizeBytes,

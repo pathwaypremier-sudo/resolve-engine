@@ -18,6 +18,37 @@ if (typeof window === "undefined") {
     }
 }
 
+type CaseEvent = {
+    type: string;
+    at: string;
+    meta?: Record<string, any>;
+};
+
+function stableSortEventsAsc(events: CaseEvent[]): CaseEvent[] {
+    return [...events].sort((a, b) => {
+        const timeA = new Date(a.at).getTime();
+        const timeB = new Date(b.at).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+
+        const typeCompare = String(a.type).localeCompare(String(b.type));
+        if (typeCompare !== 0) return typeCompare;
+
+        const metaA = JSON.stringify(a.meta || {});
+        const metaB = JSON.stringify(b.meta || {});
+        return metaA.localeCompare(metaB);
+    });
+}
+
+function stableSortEventsDesc(events: CaseEvent[]): CaseEvent[] {
+    return stableSortEventsAsc(events).reverse();
+}
+
+function getMaxEventTimestamp(events: CaseEvent[]): string {
+    const sorted = stableSortEventsAsc(events);
+    if (sorted.length === 0) return "UNKNOWN";
+    return sorted[sorted.length - 1].at;
+}
+
 export type CaseExportPackV1 = {
     version: "re_export_pack_v1";
     generatedAtIso: string;
@@ -76,7 +107,10 @@ export type CaseExportPackV1 = {
 
 export function buildCaseExportPack(caseId: string, options: { shareSafe: boolean }): CaseExportPackV1 {
     const { shareSafe } = options;
-    const generatedAtIso = new Date().toISOString();
+
+    // Read events early to derive generatedAtIso deterministically
+    const allEvents = readCaseEvents(caseId);
+    const generatedAtIso = getMaxEventTimestamp(allEvents);
 
     // 1. Cover Sheet (Text)
     // buildCaseCoverSheet already handles shareSafe internal check if passed in options, 
@@ -89,9 +123,8 @@ export function buildCaseExportPack(caseId: string, options: { shareSafe: boolea
     const packetJson = JSON.stringify(packetContent, null, 2);
 
     // 3. Timeline (Text)
-    const allEvents = readCaseEvents(caseId);
-    // Use effective events for the clean timeline
-    const sortedEvents = allEvents.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+    // Use stable sort with tie-breakers (no in-place mutation)
+    const sortedEvents = stableSortEventsDesc(allEvents);
     const effectiveEvents = getEffectiveEvents(sortedEvents);
     const rawTimelineText = formatTimelineText(effectiveEvents);
     const timelineContent = shareSafe ? redactTimelineText(rawTimelineText, allEvents) : rawTimelineText;
@@ -155,12 +188,13 @@ export function buildCaseExportPack(caseId: string, options: { shareSafe: boolea
         for (const key of appliedFields) {
             const val = meta.facts[key];
             if (typeof val === "string") {
+                const hasExplicit = meta.confirmedByUser === true || Boolean(meta.confirmedAt);
                 facts.push({
                     key,
                     value: val,
                     provenance: prov,
                     docId: (meta.docId as string) || null,
-                    confirmedByUser: true
+                    confirmedByUser: prov === "OCR_UNVERIFIED" ? hasExplicit : hasExplicit
                 });
             }
         }

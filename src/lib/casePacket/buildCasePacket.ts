@@ -34,6 +34,27 @@ type CaseEvent = {
     meta?: Record<string, any>;
 };
 
+function stableSortEventsAsc(events: CaseEvent[]): CaseEvent[] {
+    return [...events].sort((a, b) => {
+        const timeA = new Date(a.at).getTime();
+        const timeB = new Date(b.at).getTime();
+        if (timeA !== timeB) return timeA - timeB;
+
+        const typeCompare = String(a.type).localeCompare(String(b.type));
+        if (typeCompare !== 0) return typeCompare;
+
+        const metaA = JSON.stringify(a.meta || {});
+        const metaB = JSON.stringify(b.meta || {});
+        return metaA.localeCompare(metaB);
+    });
+}
+
+function getMaxEventTimestamp(events: CaseEvent[]): string {
+    const sorted = stableSortEventsAsc(events);
+    if (sorted.length === 0) return "UNKNOWN";
+    return sorted[sorted.length - 1].at;
+}
+
 type DocMeta = {
     id?: string;
     name: string;
@@ -256,6 +277,9 @@ export function buildCasePacket(caseId: string): CasePacket {
     const docs = getDocs(caseId);
     const derivedStatus = deriveStatusFromEvents(events, tier);
 
+    // Derive generated_at_iso deterministically from max event timestamp
+    const generatedAtIso = getMaxEventTimestamp(events);
+
     const finalLetter = typeof window !== "undefined"
         ? localStorage.getItem(`re_case_${caseId}_final_letter`)
         : null;
@@ -263,8 +287,8 @@ export function buildCasePacket(caseId: string): CasePacket {
 
     const disputeType = readDisputeType(caseId);
 
-    // Sort events for effective view calculation
-    const sortedEvents = [...events].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+    // Sort events with stable tie-breakers (no in-place mutation)
+    const sortedEvents = stableSortEventsAsc(events);
 
     // Read intake status for integrity block
     const isIntakeSubmitted = typeof window !== "undefined" && localStorage.getItem(`re_case_${caseId}_intake_submitted`) === "1";
@@ -313,7 +337,7 @@ export function buildCasePacket(caseId: string): CasePacket {
 
     return {
         packet_version: "2.2",
-        generated_at_iso: new Date().toISOString(),
+        generated_at_iso: generatedAtIso,
         case: {
             id: caseId,
             derived_status: derivedStatus,
@@ -365,7 +389,7 @@ export function buildCasePacket(caseId: string): CasePacket {
         timeline_facts: timelineFacts,
         derived_dates: {
             version: "1.0",
-            generated_at_iso: new Date().toISOString(),
+            generated_at_iso: generatedAtIso,
             reference_only: true, // or derived
             disclaimer: "Calculated for reference only. Verify with official notices.",
             base_dates: {

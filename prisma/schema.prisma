@@ -1,0 +1,116 @@
+// Prisma schema for Resolve Engine
+// Database: Supabase Postgres (Session Pooler)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// User Management
+// ============================================
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+
+  // Relations
+  cases Case[]
+
+  @@index([email])
+  @@map("users")
+}
+
+// ============================================
+// Case Management
+// ============================================
+
+model Case {
+  id        String   @id @default(cuid())
+  userId    String
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  facts             CaseFact[]
+  evidenceDocs      EvidenceDoc[]
+  assessmentResults AssessmentResult[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("cases")
+}
+
+// ============================================
+// Case Facts (Key-Value Store)
+// ============================================
+
+model CaseFact {
+  id         String   @id @default(cuid())
+  caseId     String
+  key        String
+  value      String   @db.Text
+  source     String?
+  confidence Float?   @default(1.0)
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@unique([caseId, key])
+  @@index([caseId])
+  @@index([key])
+  @@map("case_facts")
+}
+
+// ============================================
+// Evidence Document Metadata
+// ============================================
+
+model EvidenceDoc {
+  id          String   @id @default(cuid())
+  caseId      String
+  filename    String
+  storagePath String
+  mimeType    String
+  sizeBytes   Int
+  uploadedAt  DateTime @default(now())
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([uploadedAt])
+  @@map("evidence_docs")
+}
+
+// ============================================
+// Assessment Results
+// ============================================
+
+model AssessmentResult {
+  id          String   @id @default(cuid())
+  caseId      String
+  verdict     String
+  checks      Json
+  reasons     Json
+  missingInfo Json?
+  generatedAt DateTime @default(now())
+
+  // Relations
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@index([caseId])
+  @@index([verdict])
+  @@index([generatedAt])
+  @@map("assessment_results")
+}

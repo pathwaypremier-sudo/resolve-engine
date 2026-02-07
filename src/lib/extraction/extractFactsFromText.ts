@@ -2,6 +2,7 @@ import {
     VRN_REGEX, DATE_REGEX, MONEY_REGEX, PCN_LABELS,
     ISSUER_KEYWORDS, NOTICE_TYPE_MATCHES, LOCATION_LABELS,
     CONTRAVENTION_CODE_REGEX, DISCOUNT_REGEX,
+    TIME_REGEX, TIME_LABELS, normalizeTime,
     normalizeVRN, isValidVRN
 } from "./patterns";
 
@@ -25,6 +26,7 @@ export type ExtractedFacts = {
     issuerName?: ExtractedField;
     noticeType?: ExtractedField;
     location?: ExtractedField;
+    issueTime?: ExtractedField;  // Time of issue (HH:MM format)
     discountAmount?: ExtractedField;
     contraventionCode?: ExtractedField;
     vehicleMakeModel?: ExtractedField;
@@ -184,7 +186,59 @@ export function extractFactsFromText(text: string): ExtractedFacts {
         }
     }
 
-    // 8. Contravention Code
+    // 8. Time of Issue
+    // Look for time patterns near time-related keywords
+    const lowerText = text.toLowerCase();
+    for (const label of TIME_LABELS) {
+        const labelIdx = lowerText.indexOf(label);
+        if (labelIdx !== -1) {
+            // Search in a window after the label (up to 30 chars)
+            const searchStart = labelIdx + label.length;
+            const searchEnd = Math.min(searchStart + 30, text.length);
+            const window = text.substring(searchStart, searchEnd);
+
+            // Try to find a time in this window
+            const timeMatch = window.match(TIME_REGEX);
+            if (timeMatch) {
+                const rawTime = timeMatch[0];
+                const normalizedTime = normalizeTime(rawTime);
+                if (normalizedTime && !findings.issueTime) {
+                    findings.issueTime = {
+                        value: normalizedTime,
+                        confidence: "high",
+                        source: "document_text",
+                        evidence: getSnippet(text, labelIdx, label.length + rawTime.length + 10)
+                    };
+                    break;
+                }
+            }
+        }
+    }
+
+    // Fallback: if no labeled time found, look for standalone time patterns
+    // near date patterns (common in "Date/Time: 01/02/2026 14:35" format)
+    if (!findings.issueTime) {
+        const timeMatches = [...text.matchAll(TIME_REGEX)];
+        for (const m of timeMatches) {
+            const idx = m.index!;
+            // Check if this is near a date (within 20 chars)
+            const context = text.substring(Math.max(0, idx - 25), idx + 10).toLowerCase();
+            if (context.includes("date") || context.includes("issue") || context.includes("time")) {
+                const normalizedTime = normalizeTime(m[0]);
+                if (normalizedTime) {
+                    findings.issueTime = {
+                        value: normalizedTime,
+                        confidence: "med",
+                        source: "document_text",
+                        evidence: getSnippet(text, idx, m[0].length)
+                    };
+                    break;
+                }
+            }
+        }
+    }
+
+    // 9. Contravention Code
     const codeMatch = text.match(CONTRAVENTION_CODE_REGEX);
     if (codeMatch && codeMatch[2]) {
         findings.contraventionCode = {

@@ -5,13 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCase } from "../../../_context/CaseContext";
 import { buildCasePacket } from "@/lib/casePacket/buildCasePacket";
 import { extractCaseFields } from "@/lib/extraction/extractCaseFields";
+import { extractFactsFromText, type ExtractedFacts, type Confidence } from "@/lib/extraction/extractFactsFromText";
 import { getDocUsage, type DocUsageItem } from "@/lib/case/docUsage";
 import { formatEventTime } from "@/lib/case/events";
-import { ChevronDown, ChevronRight, ScanText } from "lucide-react";
+import { ChevronDown, ChevronRight, ScanText, Check, Sparkles, AlertCircle, Loader2 } from "lucide-react";
 import { runOcrOnSource } from "@/lib/ocr/ocrEngine";
 import { extractTextFromPdf } from "@/lib/extraction/pdf/extractTextFromPdf";
 import { persistence } from "@/lib/persistence/PersistenceAdapter";
 import { uploadFileAction } from "@/app/actions/storage";
+import { appendCaseEvent } from "@/lib/case/events";
 
 type DocCategory =
     | "Notice / PCN"
@@ -53,6 +55,22 @@ function generateId(): string {
     return `doc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function keyFor(caseId: string, key: string): string {
+    return `re_case_${caseId}_${key}`;
+}
+
+/** Suggestion field for UI display and editing */
+type ExtractedSuggestion = {
+    key: string;               // Questionnaire key (e.g. 'pcn_number')
+    label: string;             // Display label (e.g. 'PCN Number')
+    value: string;             // Extracted value
+    confidence: Confidence;    // 'high' | 'med' | 'low'
+    provenance: "NATIVE" | "OCR";
+    sourceDocName?: string;    // Which document it came from
+    selected: boolean;         // Whether user wants to apply this
+    existingValue?: string;    // Current value in persistence (if any)
+};
+
 export default function IntakeDocsPage() {
     return (
         <Suspense fallback={<div className="h-48 animate-pulse bg-zinc-50 rounded-xl" />}>
@@ -82,6 +100,12 @@ function IntakeDocsPageContent() {
     // Usage state
     const [usageMap, setUsageMap] = useState<Record<string, DocUsageItem[]>>({});
     const [expandedUsage, setExpandedUsage] = useState<Record<string, boolean>>({});
+
+    // Auto-extraction suggestions state
+    const [suggestions, setSuggestions] = useState<ExtractedSuggestion[]>([]);
+    const [isAutoExtracting, setIsAutoExtracting] = useState(false);
+    const [autoExtractStatus, setAutoExtractStatus] = useState<string | null>(null);
+    const [suggestionsApplied, setSuggestionsApplied] = useState(false);
 
     const searchParams = useSearchParams();
     const highlightDocId = searchParams.get("doc");
@@ -143,7 +167,14 @@ function IntakeDocsPageContent() {
 
             let storage = undefined;
             try {
-                storage = await uploadFileAction(formData);
+                const result = await uploadFileAction(formData);
+                // Handle upload blocked (maintenance mode or uploads disabled)
+                if (!result.ok) {
+                    console.error(`Upload blocked for ${file.name}:`, result.error);
+                    // Continue without storage - we can still proceed with local processing
+                } else {
+                    storage = result;
+                }
             } catch (e) {
                 console.error(`Failed to store ${file.name}`, e);
                 // We permit continuing without storage logic per "fail open" posture, but export will lack URI
@@ -184,6 +215,9 @@ function IntakeDocsPageContent() {
         // Reset inputs to allow re-selecting same files
         if (uploadRef.current) uploadRef.current.value = "";
         if (captureRef.current) captureRef.current.value = "";
+
+        // Trigger auto-extraction on the newly uploaded files
+        runAutoExtraction(Array.from(files), newDocs);
     }
 
     function updateCategory(index: number, category: DocCategory) {
@@ -194,6 +228,173 @@ function IntakeDocsPageContent() {
 
     function removeDoc(index: number) {
         setDocs((prev) => prev.filter((_, i) => i !== index));
+    }
+
+    /** Auto-extract fields from newly uploaded files */
+    async function runAutoExtraction(files: File[], newDocs: DocMeta[]) {
+        if (files.length === 0) return;
+
+        setIsAutoExtracting(true);
+        setAutoExtractStatus("Analyzing documents...");
+        setSuggestionsApplied(false);
+
+        try {
+            const allFacts: ExtractedFacts[] = [];
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const doc = newDocs[i];
+                let text = "";
+                let provenance: "NATIVE" | "OCR" = "NATIVE";
+
+                // Extract text from file
+                if (file.type === "application/pdf") {
+                    setAutoExtractStatus(`Checking PDF: ${file.name}...`);
+                    const pdfResult = await extractTextFromPdf(file);
+                    if (pdfResult.textAvailable && pdfResult.text.length > 50) {
+                        text = pdfResult.text;
+                    } else {
+                        provenance = "OCR";
+                        setAutoExtractStatus(`Running OCR on PDF: ${file.name}...`);
+                        const ocrResult = await runOcrOnSource({ type: "PDF_PAGES", files: [file] });
+                        text = ocrResult.text;
+                    }
+                } else if (file.type.startsWith("image/")) {
+                    provenance = "OCR";
+                    setAutoExtractStatus(`Running OCR on image: ${file.name}...`);
+                    const ocrResult = await runOcrOnSource({ type: "IMAGE", files: [file] });
+                    text = ocrResult.text;
+                }
+
+                if (text && text.trim().length > 20) {
+                    // Store OCR text on the doc
+                    setDocs((prev) =>
+                        prev.map((d) =>
+                            d.id === doc.id
+                                ? { ...d, ocrText: text, ocrProvenance: { engine: "auto", timestamp: new Date().toISOString() } }
+                                : d
+                        )
+                    );
+
+                    setAutoExtractStatus(`Extracting fields from ${file.name}...`);
+                    const facts = extractFactsFromText(text);
+                    // Add provenance to all facts
+                    Object.values(facts).forEach((f: any) => {
+                        if (f && typeof f === "object" && !Array.isArray(f)) {
+                            f.sourceType = provenance;
+                        }
+                    });
+                    allFacts.push(facts);
+                }
+            }
+
+            // Merge facts (prefer higher confidence)
+            const mergedFacts: ExtractedFacts = {};
+            for (const facts of allFacts) {
+                (Object.keys(facts) as Array<keyof ExtractedFacts>).forEach((key) => {
+                    if (key === "rawMentions") return; // Skip array field
+                    const existing = mergedFacts[key];
+                    const newVal = facts[key];
+                    // Type guard: check if it's an ExtractedField (has value property)
+                    if (newVal && typeof newVal === "object" && "value" in newVal) {
+                        const existingField = existing as { confidence?: string } | undefined;
+                        if (!existingField || newVal.confidence === "high") {
+                            (mergedFacts as any)[key] = newVal;
+                        }
+                    }
+                });
+            }
+
+            // Build suggestions from merged facts
+            const newSuggestions: ExtractedSuggestion[] = [];
+            const fieldMappings: Array<{ factKey: keyof ExtractedFacts; qKey: string; label: string }> = [
+                { factKey: "pcnRef", qKey: "pcn_number", label: "PCN Number" },
+                { factKey: "pcnRef", qKey: "reference", label: "Reference" },
+                { factKey: "issueDate", qKey: "notice_date", label: "Date of Issue" },
+                { factKey: "issueTime", qKey: "time_of_issue", label: "Time of Issue" },
+                { factKey: "vrn", qKey: "vehicle_reg", label: "Vehicle Registration" },
+                { factKey: "location", qKey: "location", label: "Location" },
+                { factKey: "issuerName", qKey: "issuer", label: "Issuer" },
+            ];
+
+            for (const mapping of fieldMappings) {
+                const fact = mergedFacts[mapping.factKey];
+                // Type guard: ensure it's an ExtractedField with value
+                if (fact && typeof fact === "object" && "value" in fact && fact.value) {
+                    const existingValue = persistence.get(keyFor(caseId, mapping.qKey)) || "";
+                    const isEmpty = !existingValue || existingValue === "NOT_SURE";
+
+                    // Skip if we already have this qKey with same value
+                    if (newSuggestions.find((s) => s.key === mapping.qKey)) continue;
+
+                    newSuggestions.push({
+                        key: mapping.qKey,
+                        label: mapping.label,
+                        value: fact.value,
+                        confidence: fact.confidence || "med",
+                        provenance: (fact as any).sourceType || "NATIVE",
+                        selected: isEmpty || fact.confidence === "high",
+                        existingValue: existingValue || undefined,
+                    });
+                }
+            }
+
+            setSuggestions(newSuggestions);
+            setAutoExtractStatus(
+                newSuggestions.length > 0
+                    ? `Found ${newSuggestions.length} field(s) to suggest.`
+                    : "No fields could be extracted from these documents."
+            );
+        } catch (err: any) {
+            console.error("Auto-extraction failed:", err);
+            setAutoExtractStatus("Extraction failed. You can proceed manually.");
+        } finally {
+            setIsAutoExtracting(false);
+        }
+    }
+
+    /** Apply selected suggestions to persistence */
+    function handleApplySuggestions() {
+        const applied: Record<string, string> = {};
+        const appliedKeys: string[] = [];
+
+        suggestions.forEach((s) => {
+            if (s.selected) {
+                persistence.set(keyFor(caseId, s.key), s.value);
+                applied[s.key] = s.value;
+                appliedKeys.push(s.key);
+            }
+        });
+
+        if (appliedKeys.length > 0) {
+            // Log audit event
+            appendCaseEvent(caseId, {
+                type: "DOCS_APPLY_EXTRACTED_FIELDS",
+                at: new Date().toISOString(),
+                meta: {
+                    appliedFields: appliedKeys,
+                    values: applied,
+                    provenance: "OCR_UNVERIFIED",
+                },
+            });
+
+            setSuggestionsApplied(true);
+            setAutoExtractStatus(`Applied ${appliedKeys.length} field(s) to your case.`);
+        }
+    }
+
+    /** Toggle a suggestion's selected state */
+    function toggleSuggestion(key: string) {
+        setSuggestions((prev) =>
+            prev.map((s) => (s.key === key ? { ...s, selected: !s.selected } : s))
+        );
+    }
+
+    /** Update a suggestion's value */
+    function updateSuggestionValue(key: string, value: string) {
+        setSuggestions((prev) =>
+            prev.map((s) => (s.key === key ? { ...s, value } : s))
+        );
     }
 
     async function handleExtractFields() {
@@ -311,20 +512,20 @@ function IntakeDocsPageContent() {
 
     function handleContinue() {
         localStorage.setItem(`re_case_${caseId}_docs`, JSON.stringify(docs));
-        router.push(`/app/case/${caseId}/intake/review`);
+        router.push(`/app/case/${caseId}/intake/details`);
     }
 
     function handleSkip() {
         localStorage.setItem(`re_case_${caseId}_docs`, JSON.stringify([]));
-        router.push(`/app/case/${caseId}/intake/review`);
+        router.push(`/app/case/${caseId}/intake/details`);
     }
 
     return (
         <main className="space-y-6">
             <header>
                 <div className="mb-4">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Step 2 of 2 — Add documents (optional)</p>
-                    <p className="text-sm text-zinc-600 mt-1">This step stores copies for my case file. It does not affect the extracted details.</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Step 1 of 2 — Upload evidence</p>
+                    <p className="text-sm text-zinc-600 mt-1">Upload your notice or evidence. We'll automatically extract key details to help fill in your case.</p>
                 </div>
                 <h1 className="text-xl font-semibold">Upload documents</h1>
                 <p className="mt-1 text-sm text-zinc-500">
@@ -544,6 +745,97 @@ function IntakeDocsPageContent() {
                     </p>
                 )}
             </section>
+
+            {/* Auto-Extraction Suggestions */}
+            {(isAutoExtracting || suggestions.length > 0 || autoExtractStatus) && (
+                <section className="rounded-xl border border-emerald-200 bg-emerald-50/30 p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                        {isAutoExtracting ? (
+                            <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                        ) : suggestionsApplied ? (
+                            <Check className="w-4 h-4 text-emerald-600" />
+                        ) : (
+                            <Sparkles className="w-4 h-4 text-emerald-600" />
+                        )}
+                        <p className="text-sm font-medium text-emerald-900">
+                            {isAutoExtracting ? "Extracting..." : suggestionsApplied ? "Applied!" : "Suggested values"}
+                        </p>
+                    </div>
+
+                    {autoExtractStatus && (
+                        <p className="text-xs text-emerald-700 mb-3">{autoExtractStatus}</p>
+                    )}
+
+                    {suggestions.length > 0 && !suggestionsApplied && (
+                        <>
+                            <div className="space-y-2 mb-4">
+                                {suggestions.map((s) => (
+                                    <div
+                                        key={s.key}
+                                        className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${s.selected
+                                            ? "border-emerald-400 bg-white"
+                                            : "border-zinc-200 bg-zinc-50"
+                                            }`}
+                                    >
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleSuggestion(s.key)}
+                                            className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${s.selected
+                                                ? "bg-emerald-500 border-emerald-500"
+                                                : "border-zinc-300 bg-white"
+                                                }`}
+                                        >
+                                            {s.selected && <Check className="w-3 h-3 text-white" />}
+                                        </button>
+
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 mb-1">
+                                                <span className="text-xs font-medium text-zinc-700">{s.label}</span>
+                                                <span className={`text-[10px] px-1.5 py-0.5 rounded ${s.confidence === "high"
+                                                    ? "bg-emerald-100 text-emerald-700"
+                                                    : s.confidence === "med"
+                                                        ? "bg-amber-100 text-amber-700"
+                                                        : "bg-zinc-100 text-zinc-600"
+                                                    }`}>
+                                                    {s.confidence}
+                                                </span>
+                                                <span className="text-[10px] text-zinc-400">{s.provenance}</span>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={s.value}
+                                                onChange={(e) => updateSuggestionValue(s.key, e.target.value)}
+                                                className="w-full text-sm px-2 py-1 rounded border border-zinc-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                            />
+                                            {s.existingValue && s.existingValue !== "NOT_SURE" && (
+                                                <p className="text-[10px] text-amber-600 mt-1">
+                                                    Current: {s.existingValue}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleApplySuggestions}
+                                    disabled={!suggestions.some((s) => s.selected)}
+                                    className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
+                                >
+                                    Apply selected
+                                </button>
+                                <button
+                                    onClick={() => setSuggestions([])}
+                                    className="rounded-lg border border-zinc-200 px-4 py-2 text-sm text-zinc-600 hover:bg-white"
+                                >
+                                    Dismiss
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </section>
+            )}
 
             <p className="text-xs text-zinc-500">
                 You can add more documents later.

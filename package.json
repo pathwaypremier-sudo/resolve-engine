@@ -13,28 +13,42 @@
     "check:verticals": "node scripts/check-vertical-leaks.mjs",
     "snapshot:triggers:update": "npx -y tsx scripts/check-trigger-snapshot.ts --update",
     "rc-e2e": "npx -y tsx scripts/verify-e2e-rc.ts",
+    "preflight": "npx -y tsx scripts/preflight.ts",
     "rc-smoke": "node scripts/rc-smoke.mjs",
-    "rc-final": "npx -y cross-env RC_E2E=1 npm run rc-smoke"
+    "rc-final": "npx -y cross-env RC_E2E=1 npm run rc-smoke",
+    "prisma:linux:validate": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx prisma validate\"",
+    "prisma:linux:generate": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx prisma generate\"",
+    "prisma:linux:migrate": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx prisma migrate dev\"",
+    "prisma:linux:push": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx prisma db push\"",
+    "prisma:linux:smoke": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx tsx scripts/db-smoke-test.ts\""
   },
   "dependencies": {
     "autoprefixer": "^10.4.23",
     "better-sqlite3": "^12.6.2",
     "framer-motion": "^12.29.2",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.563.0",
     "next": "^14.2.35",
     "pdfjs-dist": "^5.4.530",
+    "pg": "^8.18.0",
     "postcss": "^8.5.6",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "stripe": "^20.3.0",
     "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
+    "@prisma/client": "^7.3.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
+    "@types/pg": "^8.16.0",
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
+    "dotenv": "^17.2.3",
+    "dotenv-cli": "^11.0.0",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.35",
+    "prisma": "^7.3.0",
     "tailwindcss": "^3.4.19",
     "typescript": "^5"
   }

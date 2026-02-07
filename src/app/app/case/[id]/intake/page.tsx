@@ -25,18 +25,14 @@ export default function IntakePage() {
 
     const handleSelect = (type: DisputeType) => {
         writeDisputeType(caseId, type);
-        router.push(`/app/case/${caseId}/intake/details`);
+        // Go to docs page first (evidence upload with smart extraction)
+        router.push(`/app/case/${caseId}/intake/docs`);
     };
 
     const handleNotSure = () => {
         clearDisputeType(caseId);
-        // Navigate or stay? "Not sure" support usually implies generic flow.
-        // For now, per spec: "Select 'Not sure' -> dispute_type clears... Evidence checklist dispute_type becomes UNKNOWN"
-        // And "User can change it... Calm warning".
-        // The user didn't specify navigation for Not Sure.
-        // Assuming we stay or go to details with generic state.
-        // Let's go to details.
-        router.push(`/app/case/${caseId}/intake/details`);
+        // Go to docs page first even for "not sure" - evidence may help identify type
+        router.push(`/app/case/${caseId}/intake/docs`);
     };
 
     return (

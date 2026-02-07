@@ -302,6 +302,13 @@ export default function CaseFileIndex({ caseId }: CaseFileIndexProps) {
 
             const uploadResult = await uploadFileAction(formData);
 
+            // Handle upload blocked (maintenance mode or uploads disabled)
+            if (!uploadResult.ok) {
+                console.error('Upload blocked:', uploadResult.error);
+                alert(uploadResult.error); // Show user-friendly message
+                return;
+            }
+
             // 3. Create Email Draft
             const bodyText = `Attached is my complaint pack for your review. It contains a timeline, copies, and relevant case details as recorded.`;
 
@@ -379,8 +386,8 @@ export default function CaseFileIndex({ caseId }: CaseFileIndexProps) {
                             disabled={isCreatingDraft || draftCreated}
                             onClick={handleCreateDraft}
                             className={`flex items-center gap-1.5 px-3 py-1.5 border rounded text-xs font-medium transition-colors shadow-sm ${draftCreated
-                                    ? "bg-green-50 border-green-200 text-green-700"
-                                    : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50"
+                                ? "bg-green-50 border-green-200 text-green-700"
+                                : "bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50"
                                 }`}
                         >
                             {draftCreated ? (

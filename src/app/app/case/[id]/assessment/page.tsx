@@ -30,6 +30,24 @@ import { getCaseEvents, type CaseEvent } from "../../_context/CaseEvents";
 import { getDisputeTypeLabel } from "@/lib/case/disputeType";
 import { PageSection } from "@/components/ui/PageSection";
 import Panel, { PanelHeader, PanelBody } from "@/components/ui/Panel";
+import { loadAssessmentInput, logAssessmentInputSummary } from "@/lib/assessment/loadAssessmentInput";
+import type { AssessmentInput } from "@/lib/assessment/AssessmentInput";
+import { runAssessment } from "@/lib/assessment/runAssessment";
+import type { AssessmentResult } from "@/lib/assessment/AssessmentResult";
+import { mapMissingInfoToQuestions } from "@/lib/assessment/mapMissingInfoToQuestions";
+import { getNotebookLMPromptTemplate } from "@/lib/notebooklm/getNotebookLMPromptTemplate";
+import { flags } from "@/lib/flags/flags";
+import { Copy, Download, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { saveAssessmentResultAction, loadAssessmentResultAction } from "./actions";
+import { getOrCreateStubIdentity } from "@/lib/integrations/auth/stubAuth";
+
+// ... inside component ...
+
+
+
+
+
+
 
 type DocMeta = {
     name: string;
@@ -38,93 +56,125 @@ type DocMeta = {
     category: string;
 };
 
-function getUniqueCategories(docs: DocMeta[]): string[] {
-    return [...new Set(docs.map((d) => d.category))];
-}
-
-function getVal(caseId: string, key: string): string | null {
-    const v = localStorage.getItem(`re_case_${caseId}_${key}`);
-    if (!v || v === "NOT_SURE") return null;
-    return v;
-}
 
 export default function AssessmentPage() {
     const { id: caseId } = useCase();
     const headerFacts = useCaseHeaderFacts(caseId);
 
-    const [disputeType, setDisputeType] = useState<string>("");
-    const [issuer, setIssuer] = useState<string>("");
-    const [reference, setReference] = useState<string>("");
-    const [noticeDate, setNoticeDate] = useState<string | null>(null);
-    const [eventDate, setEventDate] = useState<string | null>(null);
-    const [summary, setSummary] = useState<string | null>(null);
-    const [desiredOutcome, setDesiredOutcome] = useState<string | null>(null);
-    const [alreadyContacted, setAlreadyContacted] = useState<string | null>(null);
-    const [councilStage, setCouncilStage] = useState<string | null>(null);
-    const [councilAppealed, setCouncilAppealed] = useState<string | null>(null);
-    const [privateNoticeType, setPrivateNoticeType] = useState<string | null>(null);
-    const [privateAppealed, setPrivateAppealed] = useState<string | null>(null);
-    const [docs, setDocs] = useState<DocMeta[]>([]);
     const [events, setEvents] = useState<CaseEvent[]>([]);
     const [revision, setRevision] = useState(0);
 
-    useEffect(() => {
-        setDisputeType(localStorage.getItem(`re_case_${caseId}_dispute_type`) || "");
-        setIssuer(localStorage.getItem(`re_case_${caseId}_issuer`) || "");
-        setReference(localStorage.getItem(`re_case_${caseId}_reference`) || "");
-        setNoticeDate(getVal(caseId, "notice_date"));
-        setEventDate(getVal(caseId, "event_date"));
-        setSummary(getVal(caseId, "summary"));
-        setDesiredOutcome(getVal(caseId, "desired_outcome"));
-        setAlreadyContacted(getVal(caseId, "already_contacted"));
-        setCouncilStage(getVal(caseId, "council_stage"));
-        setCouncilAppealed(getVal(caseId, "council_appealed"));
-        setPrivateNoticeType(getVal(caseId, "private_notice_type"));
-        setPrivateAppealed(getVal(caseId, "private_appealed"));
+    const [input, setInput] = useState<AssessmentInput | null>(null);
+    const [result, setResult] = useState<AssessmentResult | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-        const docsJson = localStorage.getItem(`re_case_${caseId}_docs`);
-        if (docsJson) {
+    const [isDownloading, setIsDownloading] = useState(false);
+    const [showPackInstructions, setShowPackInstructions] = useState(false);
+
+    async function handleDownloadPack() {
+        if (!input) return;
+        setIsDownloading(true);
+        try {
+            const response = await fetch("/api/notebooklm/pack", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(input)
+            });
+
+            if (!response.ok) throw new Error("Generation failed");
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `resolve-case-${caseId.slice(0, 8)}-notebooklm-pack.zip`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+
+            setShowPackInstructions(true);
+        } catch (err) {
+            console.error("Pack download failed:", err);
+            alert("Failed to generate pack. Please try again.");
+        } finally {
+            setIsDownloading(false);
+        }
+    }
+
+    const copyPrompt = () => {
+        navigator.clipboard.writeText(getNotebookLMPromptTemplate());
+        alert("Prompt copied to clipboard!");
+    };
+
+    // Load and run assessment engine on mount
+    useEffect(() => {
+        let mounted = true;
+        async function runEngine() {
             try {
-                setDocs(JSON.parse(docsJson));
-            } catch {
-                setDocs([]);
+                // 0. Try to load existing result from DB first
+                const existingResult = await loadAssessmentResultAction(caseId);
+
+                // 1. Load canonical input (local)
+                const assessmentInput = await loadAssessmentInput(caseId);
+                logAssessmentInputSummary(assessmentInput);
+
+                // If DB result exists and is fresher than local inputs, we might want to use it?
+                // But local inputs are the source of truth for the wizard.
+                // For now, let's always run the engine to get the freshest result, then save it.
+                // UNLESS the user requirement says "fallback to existing logic if not" implying we should prefer DB?
+                // "When loading assessment, read from DB if present (fallback to existing logic if not)"
+
+                if (existingResult) {
+                    if (mounted) {
+                        setInput(assessmentInput);
+                        setResult(existingResult);
+                        setIsLoading(false);
+                    }
+                    console.log("[AssessmentPage] Loaded result from DB");
+                } else {
+                    // 2. Run assessment engine
+                    const assessmentResult = await runAssessment(assessmentInput);
+
+                    // 3. Persist result
+                    // We need an identity for the user.
+                    // Since we are client-side, we can get it from the persistence adapter wrapper or stubAuth directly
+                    const identity = getOrCreateStubIdentity();
+
+                    // Fire and forget save (or await if critical)
+                    saveAssessmentResultAction(caseId, assessmentResult, identity.actorId)
+                        .then(ok => console.log(ok ? "[AssessmentPage] Saved result to DB" : "[AssessmentPage] Failed to save result"));
+
+                    if (mounted) {
+                        setInput(assessmentInput);
+                        setResult(assessmentResult);
+                        setIsLoading(false);
+                    }
+                }
+            } catch (err) {
+                console.error("Engine failed:", err);
+                if (mounted) setIsLoading(false);
             }
         }
-
-        setEvents(getCaseEvents(caseId));
+        runEngine();
+        return () => { mounted = false; };
     }, [caseId]);
 
-    const hasValidDate = noticeDate !== null;
-    const categories = getUniqueCategories(docs);
-    const hasNotice = categories.includes("Notice / PCN");
-    const hasPhotos = categories.includes("Photos");
 
-    // Derived state - safe for client component
+    // TODO: Handle !intakeSubmitted case properly again if needed, or rely on Engine verdict "UNCERTAIN"
     const intakeSubmitted = typeof window !== "undefined"
         ? localStorage.getItem(`re_case_${caseId}_intake_submitted`) === "1"
         : false;
 
-    if (!intakeSubmitted) {
-        return (
-            <main className="space-y-6">
-                <Breadcrumbs
-                    items={[
-                        { label: "Dashboard", href: "/app" },
-                        { label: `Case ${caseId.slice(0, 8)}`, href: `/app/case/${caseId}` },
-                        { label: "Assessment" },
-                    ]}
-                />
-                <EmptyState
-                    title="Intake not submitted"
-                    body="Assessment derives from your case facts and documents. Submit intake to continue."
-                    primaryAction={{
-                        label: "Edit intake",
-                        href: `/intake?case=${caseId}`,
-                    }}
-                />
-            </main>
-        );
+    const hasValidDate = !!input?.facts.issueDate.value;
+
+    if (!result) return <div className="p-8 text-center text-zinc-500">Loading assessment result...</div>;
+
+    // Fallback if result says payload is missing but verdict isn't definitive (rare edge case)
+    if (result.verdict === "UNCERTAIN" && !intakeSubmitted) {
+        // Could render EmptyState here, but for now let's just show the analysis
     }
+
+    const missingInfoActions = mapMissingInfoToQuestions(caseId, result.missingInfo);
 
     return (
         <main className="space-y-6">
@@ -141,6 +191,36 @@ export default function AssessmentPage() {
                 subtitle="Procedural route and evidence checklist"
                 {...headerFacts}
             />
+
+            {/* Missing Info Alert Panel */}
+            {missingInfoActions.length > 0 && (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                    <div className="flex items-start gap-4">
+                        <div className="mt-1 flex-shrink-0 bg-amber-100 p-1.5 rounded-full">
+                            <span className="text-xl">⚠️</span>
+                        </div>
+                        <div className="flex-1">
+                            <h3 className="text-sm font-semibold text-amber-900">Missing Information Detected</h3>
+                            <p className="mt-1 text-sm text-amber-800">
+                                The engine needs the following information to provide a complete assessment.
+                                Please update these fields to continue.
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                                {missingInfoActions.map(action => (
+                                    <Link
+                                        key={action.field}
+                                        href={action.url}
+                                        className="inline-flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5 text-xs font-medium text-amber-700 shadow-sm border border-amber-200 hover:bg-amber-50"
+                                    >
+                                        <span>Fix {action.label}</span>
+                                        <span aria-hidden="true">→</span>
+                                    </Link>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <div className="flex flex-col lg:flex-row lg:gap-8">
                 {/* Main content */}
@@ -160,13 +240,117 @@ export default function AssessmentPage() {
 
                         <AssessmentReadinessPanel caseId={caseId} revision={revision} />
 
+                        {/* Improved Inputs Coverage based on Engine Result */}
                         <InputsCoverage
-                            disputeType={disputeType}
-                            issuer={issuer}
-                            reference={reference}
-                            docsCount={docs.length}
+                            disputeType={input?.facts.disputeType.value || ""}
+                            issuer={input?.facts.issuer.value || ""}
+                            reference={input?.facts.reference.value || ""}
+                            docsCount={input?.evidence.docs.length || 0}
                             events={events}
                         />
+
+                        {/* Engine Verdict Display (Temporary) */}
+                        <Panel>
+                            {/* ... (keep verdict panel content as is, it uses result which is fine) ... */}
+                            <PanelHeader title="Assessment Engine Result" />
+                            <PanelBody>
+                                <div className="space-y-4">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-semibold">Verdict:</span>
+                                        <span className={`px-2 py-1 rounded text-sm ${result.verdict === "APPEAL_POSSIBLE" ? "bg-emerald-100 text-emerald-800" :
+                                            result.verdict === "UNCERTAIN" ? "bg-amber-100 text-amber-800" :
+                                                "bg-zinc-100 text-zinc-800"
+                                            }`}>{result.verdict}</span>
+                                    </div>
+
+                                    <div>
+                                        <p className="font-medium text-sm mb-2">Checks Performed:</p>
+                                        <div className="space-y-2">
+                                            {result.checks.map(check => (
+                                                <div key={check.id} className="flex items-start gap-2 text-sm border p-2 rounded">
+                                                    <div className={`mt-0.5 w-4 h-4 rounded-full flex-shrink-0 ${check.passed ? "bg-emerald-500" : "bg-red-500"}`} />
+                                                    <div>
+                                                        <p className="font-medium">{check.label}</p>
+                                                        <p className="text-zinc-600 text-xs">{check.rationale}</p>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </PanelBody>
+                        </Panel>
+
+                        {/* Gated Feature: NotebookLM Pack Download */}
+                        {flags.notebookLM.isEnabled() && (
+                            <Panel>
+                                <PanelHeader title="AI Assistant Pack" />
+                                <PanelBody>
+                                    <div className="space-y-4">
+                                        <div className="flex items-start justify-between">
+                                            <div>
+                                                <p className="text-sm text-zinc-600">
+                                                    Download a specialized "Source Pack" to use with Google NotebookLM.
+                                                    This enables you to chat with your case evidence and generate additional drafts.
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <button
+                                            onClick={handleDownloadPack}
+                                            disabled={isDownloading}
+                                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition-colors"
+                                        >
+                                            {isDownloading ? (
+                                                <>
+                                                    <span className="animate-spin">⏳</span> Generating...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Download className="w-4 h-4" /> Download Source Pack
+                                                </>
+                                            )}
+                                        </button>
+
+                                        {/* Instructions (Collapsible) */}
+                                        <div className="border rounded-lg border-zinc-200 overflow-hidden bg-zinc-50">
+                                            <button
+                                                onClick={() => setShowPackInstructions(!showPackInstructions)}
+                                                className="w-full flex items-center justify-between p-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+                                            >
+                                                <span>How to use in NotebookLM</span>
+                                                {showPackInstructions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                                            </button>
+
+                                            {showPackInstructions && (
+                                                <div className="p-3 border-t border-zinc-200 space-y-3 bg-white">
+                                                    <ol className="list-decimal list-inside text-sm text-zinc-600 space-y-1">
+                                                        <li>Click "Download Source Pack" above.</li>
+                                                        <li>Unzip the file locally.</li>
+                                                        <li>Go to <a href="https://notebooklm.google.com" target="_blank" className="text-indigo-600 hover:underline">NotebookLM</a> and create a new notebook.</li>
+                                                        <li>Upload all the files from the pack as sources.</li>
+                                                        <li>Paste the prompt below into the chat box.</li>
+                                                    </ol>
+
+                                                    <div className="mt-3">
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Recommended Prompt</span>
+                                                            <button onClick={copyPrompt} className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700">
+                                                                <Copy className="w-3 h-3" /> Copy
+                                                            </button>
+                                                        </div>
+                                                        <div className="p-2 bg-zinc-100 rounded text-xs font-mono text-zinc-700 whitespace-pre-wrap border border-zinc-200 max-h-40 overflow-y-auto">
+                                                            {getNotebookLMPromptTemplate()}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </PanelBody>
+                            </Panel>
+                        )}
+
 
                         <ProceduralRoutePanel caseId={caseId} />
                         <IssuerGuidancePanel caseId={caseId} />
@@ -183,45 +367,41 @@ export default function AssessmentPage() {
                             <div className="grid gap-3 sm:grid-cols-2 text-sm">
                                 <div>
                                     <span className="text-zinc-500">Dispute type:</span>{" "}
-                                    <span className="text-zinc-900">{getDisputeTypeLabel(disputeType)}</span>
+                                    <span className="text-zinc-900">{getDisputeTypeLabel(input?.facts.disputeType.value || "")}</span>
                                 </div>
                                 <div>
                                     <span className="text-zinc-500">Issuer:</span>{" "}
-                                    <span className="text-zinc-900">{issuer || "—"}</span>
+                                    <span className="text-zinc-900">{input?.facts.issuer.value || "—"}</span>
                                 </div>
                                 <div>
                                     <span className="text-zinc-500">Reference:</span>{" "}
-                                    <span className="text-zinc-900">{reference || "—"}</span>
+                                    <span className="text-zinc-900">{input?.facts.reference.value || "—"}</span>
                                 </div>
                                 <div>
                                     <span className="text-zinc-500">Notice date:</span>{" "}
-                                    <span className="text-zinc-900">{noticeDate || "—"}</span>
+                                    <span className="text-zinc-900">{input?.facts.issueDate.value || "—"}</span>
                                 </div>
-                                {eventDate && (
+                                {input?.facts.eventDate.value && (
                                     <div>
                                         <span className="text-zinc-500">Event date:</span>{" "}
-                                        <span className="text-zinc-900">{eventDate}</span>
+                                        <span className="text-zinc-900">{input.facts.eventDate.value}</span>
                                     </div>
                                 )}
-                                {desiredOutcome && (
+                                {input?.facts.contraventionType.value && (
                                     <div>
-                                        <span className="text-zinc-500">Desired outcome:</span>{" "}
-                                        <span className="text-zinc-900">{desiredOutcome}</span>
+                                        <span className="text-zinc-500">Contravention:</span>{" "}
+                                        <span className="text-zinc-900">{input.facts.contraventionType.value}</span>
                                     </div>
                                 )}
                             </div>
                             <div className="text-sm">
                                 <span className="text-zinc-500">Documents:</span>{" "}
                                 <span className="text-zinc-900">
-                                    {docs.length} file{docs.length !== 1 ? "s" : ""}
-                                    {docs.length > 0 && (
-                                        <span className="text-zinc-400">
-                                            {" "}({categories.join(", ")})
-                                        </span>
-                                    )}
+                                    {input?.evidence.docs.length || 0} file{(input?.evidence.docs.length || 0) !== 1 ? "s" : ""}
                                 </span>
                             </div>
                         </section>
+
 
 
 

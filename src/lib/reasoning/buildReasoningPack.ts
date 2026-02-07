@@ -7,6 +7,25 @@ import { buildEvidenceChecklist } from "@/lib/case/evidenceChecklist";
 import { deriveDeliverableReadiness } from "@/lib/assessment/deriveAssessmentReadinessFacts";
 import { buildQuestions, Ctx } from "@/lib/assessment/questions";
 
+type CaseEvent = {
+    type: string;
+    at: string;
+    meta?: Record<string, any>;
+};
+
+function compareEventsAsc(a: CaseEvent, b: CaseEvent): number {
+    const timeA = new Date(a.at).getTime();
+    const timeB = new Date(b.at).getTime();
+    if (timeA !== timeB) return timeA - timeB;
+
+    const typeCompare = String(a.type).localeCompare(String(b.type));
+    if (typeCompare !== 0) return typeCompare;
+
+    const metaA = JSON.stringify(a.meta ?? {});
+    const metaB = JSON.stringify(b.meta ?? {});
+    return metaA.localeCompare(metaB);
+}
+
 // Internal helper to get all answers from storage using QUESTIONS logic
 function getLocalAnswers(caseId: string): Record<string, string> {
     if (typeof window === "undefined") return {};
@@ -83,7 +102,11 @@ function getEvidenceMeta(caseId: string) {
 
 export function buildReasoningPack(caseId: string): ReasoningPack {
     const events = readCaseEvents(caseId);
-    const effectiveEvents = getEffectiveEvents(events);
+    const sortedEvents = [...events].sort(compareEventsAsc);
+    const effectiveEvents = getEffectiveEvents(sortedEvents);
+    const generatedAtIso = sortedEvents.length > 0
+        ? sortedEvents[sortedEvents.length - 1].at
+        : "UNKNOWN";
 
     // Facts
     const timelineFacts = readTimelineFacts(caseId);
@@ -114,7 +137,7 @@ export function buildReasoningPack(caseId: string): ReasoningPack {
     return {
         meta: {
             caseId,
-            generatedAt: new Date().toISOString(),
+            generatedAt: generatedAtIso,
             schemaVersion: "1.0.0"
         },
         facts: {

@@ -35,6 +35,8 @@ import {
 import { getPaymentProvider } from "@/lib/integrations/payments/getPaymentProvider";
 import { reconcileEntitlement } from "@/lib/integrations/payments/reconcileEntitlement";
 import { persistence } from "@/lib/persistence/PersistenceAdapter";
+import BrainPanel from "@/components/case/BrainPanel";
+import CoveragePanel from "@/components/case/CoveragePanel";
 import { PaymentsCaseSlice } from "@/lib/integrations/payments/paymentsContract";
 
 
@@ -99,6 +101,8 @@ export default function DeliverPage() {
                 {/* Main content */}
                 <div className="flex-1 min-w-0">
                     <PageSection>
+                        <BrainPanel caseId={caseId} />
+                        <CoveragePanel caseId={caseId} />
                         <DeliverReadinessPanel caseId={caseId} />
 
                         {/* Deliverable Mapping - Only show if ready check passes? 

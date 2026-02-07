@@ -66,6 +66,25 @@ export const CONTRAVENTION_CODE_REGEX = /\b(Code|Contravention)\s*[:\.]?\s*(\d{2
 // Discount Amount
 export const DISCOUNT_REGEX = /(?:reduced to|discounted to|accept)\s*(£\s?\d+(\.\d{2})?)/i;
 
+// Time patterns: 14:35, 14.35, 9:05
+// Matches 00:00-23:59 in HH:MM or HH.MM or H:MM format
+export const TIME_REGEX = /\b([01]?[0-9]|2[0-3])[:\.h]([0-5][0-9])\b/gi;
+
+// Strict 4-digit time (only use with label context): 0935, 1435
+export const TIME_STRICT_REGEX = /\b([01][0-9]|2[0-3])([0-5][0-9])\b/g;
+
+// Time labels (keywords that precede or follow time values)
+export const TIME_LABELS = [
+    "time of issue",
+    "time issued",
+    "time of contravention",
+    "contravention time",
+    "observed at",
+    "issued at",
+    "time:",
+    "at time",
+];
+
 // Context helpers
 export function normalizeVRN(vrn: string): string {
     return vrn.replace(/\s+/g, "").toUpperCase();
@@ -82,3 +101,35 @@ export function normalizeDate(dateStr: string): string | null {
     // For V1 we just return the cleaned string
     return dateStr.trim();
 }
+
+/**
+ * Normalize time to HH:MM 24-hour format.
+ * Input examples: "14:35", "14.35", "1435", "9:05", "09.05"
+ * Output: "14:35", "14:35", "14:35", "09:05", "09:05"
+ */
+export function normalizeTime(timeStr: string): string | null {
+    if (!timeStr) return null;
+
+    const cleaned = timeStr.trim();
+
+    // Match HH:MM, HH.MM, H:MM, H.MM
+    const colonOrDot = cleaned.match(/^(\d{1,2})[:\.h](\d{2})$/);
+    if (colonOrDot) {
+        const hours = colonOrDot[1].padStart(2, '0');
+        const mins = colonOrDot[2];
+        return `${hours}:${mins}`;
+    }
+
+    // Match 4-digit HHMM format
+    const fourDigit = cleaned.match(/^(\d{2})(\d{2})$/);
+    if (fourDigit) {
+        const hours = fourDigit[1];
+        const mins = fourDigit[2];
+        if (parseInt(hours) <= 23 && parseInt(mins) <= 59) {
+            return `${hours}:${mins}`;
+        }
+    }
+
+    return null;
+}
+

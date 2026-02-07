@@ -6,6 +6,9 @@ import Link from "next/link";
 import { useCase } from "../../../_context/CaseContext";
 import { addCaseEvent } from "../../../_context/CaseEvents";
 import { ReferenceOnlyDisclaimer } from "@/components/ui/ReferenceOnlyDisclaimer";
+import { getEvidenceContext } from "@/lib/evidence/getEvidenceContext";
+import { getCaseFacts, getCaseFactsSummary } from "@/lib/caseFacts/getCaseFacts";
+
 
 type DocMeta = {
     name: string;
@@ -34,8 +37,12 @@ export default function IntakeReviewPage() {
 
     const [issuer, setIssuer] = useState<string | null>(null);
     const [reference, setReference] = useState<string | null>(null);
+    const [pcnNumber, setPcnNumber] = useState<string | null>(null);
     const [noticeDate, setNoticeDate] = useState<string | null>(null);
+    const [timeOfIssue, setTimeOfIssue] = useState<string | null>(null);
     const [eventDate, setEventDate] = useState<string | null>(null);
+    const [vehicleReg, setVehicleReg] = useState<string | null>(null);
+    const [location, setLocation] = useState<string | null>(null);
     const [summary, setSummary] = useState<string | null>(null);
     const [desiredOutcome, setDesiredOutcome] = useState<string | null>(null);
     const [alreadyContacted, setAlreadyContacted] = useState<string | null>(null);
@@ -48,8 +55,12 @@ export default function IntakeReviewPage() {
     useEffect(() => {
         setIssuer(getVal(caseId, "issuer"));
         setReference(getVal(caseId, "reference"));
+        setPcnNumber(getVal(caseId, "pcn_number"));
         setNoticeDate(getVal(caseId, "notice_date"));
+        setTimeOfIssue(getVal(caseId, "time_of_issue"));
         setEventDate(getVal(caseId, "event_date"));
+        setVehicleReg(getVal(caseId, "vehicle_reg"));
+        setLocation(getVal(caseId, "location"));
         setSummary(getVal(caseId, "summary"));
         setDesiredOutcome(getVal(caseId, "desired_outcome"));
         setAlreadyContacted(getVal(caseId, "already_contacted"));
@@ -69,10 +80,26 @@ export default function IntakeReviewPage() {
     }, [caseId]);
 
     function handleSubmit() {
+        // Non-blocking evidence context check (log only, no UI blocking)
+        Promise.all([
+            getEvidenceContext(caseId),
+            getCaseFacts(caseId)
+        ]).then(([evidenceCtx, caseFacts]) => {
+            const factsSummary = getCaseFactsSummary(caseFacts);
+            console.log("[EvidenceCheck] combinedText.length:", evidenceCtx.combinedText.length);
+            console.log("[EvidenceCheck] docCount:", evidenceCtx.docs.length);
+            console.log("[EvidenceCheck] hasPcnNumber:", caseFacts.pcnNumber.value !== null);
+            console.log("[EvidenceCheck] hasIssueDate:", caseFacts.issueDate.value !== null);
+            console.log("[EvidenceCheck] factsSummary:", factsSummary);
+        }).catch(err => {
+            console.warn("[EvidenceCheck] Failed to load evidence context:", err);
+        });
+
         localStorage.setItem(`re_case_${caseId}_intake_submitted`, "1");
         addCaseEvent(caseId, { type: "INTAKE_SUBMITTED", at: new Date().toISOString() });
         router.push(`/app/case/${caseId}/assessment`);
     }
+
 
     // Build timeline bullets
     const timelineBullets: string[] = [];
@@ -112,6 +139,25 @@ export default function IntakeReviewPage() {
                     <div>
                         <span className="text-zinc-500">Reference:</span>{" "}
                         <span className="text-zinc-900">{reference || "—"}</span>
+                    </div>
+                    <div>
+                        <span className="text-zinc-500">PCN Number:</span>{" "}
+                        <span className="text-zinc-900">{pcnNumber || "—"}</span>
+                    </div>
+                    <div>
+                        <span className="text-zinc-500">Vehicle Reg:</span>{" "}
+                        <span className="text-zinc-900">{vehicleReg || "—"}</span>
+                    </div>
+                    <div>
+                        <span className="text-zinc-500">Location:</span>{" "}
+                        <span className="text-zinc-900">{location || "—"}</span>
+                    </div>
+                    <div>
+                        <span className="text-zinc-500">Date of Issue:</span>{" "}
+                        <span className="text-zinc-900">
+                            {noticeDate || "—"}
+                            {timeOfIssue && ` at ${timeOfIssue}`}
+                        </span>
                     </div>
                     <div>
                         <span className="text-zinc-500">Desired outcome:</span>{" "}
