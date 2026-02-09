@@ -139,6 +139,23 @@ function renderRecommendedStrategy(
         DISCRETIONARY_MITIGATION: {
             title: "Discretionary Mitigation",
             description: "Request cancellation based on mitigating circumstances and discretionary grounds when procedural or evidence-based challenges are weak."
+        },
+        // Private parking strategies (should not be used in Council PCN context)
+        KEEPER_LIABILITY_CHALLENGE: {
+            title: "Keeper Liability Challenge",
+            description: "Challenge based on keeper liability and Notice to Keeper timing issues."
+        },
+        SIGNAGE_EVIDENCE_CHALLENGE: {
+            title: "Signage Evidence Challenge",
+            description: "Challenge based on unclear signage or terms not prominently displayed."
+        },
+        EVIDENCE_REQUEST_FIRST: {
+            title: "Evidence Request First",
+            description: "Request operator evidence before proceeding with challenge."
+        },
+        DISCRETIONARY_MITIGATION_PP: {
+            title: "Discretionary Mitigation (Private Parking)",
+            description: "Request cancellation based on mitigating circumstances for private parking."
         }
     };
 

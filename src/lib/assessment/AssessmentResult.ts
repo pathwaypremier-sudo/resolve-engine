@@ -15,7 +15,12 @@ export type AssessmentVerdict =
 export type ChallengeStrategy =
     | "EVIDENCE_FIRST"           // Signage unclear OR markings unclear OR facts incomplete
     | "PROCEDURAL_TIMING"        // Notice timing late OR statutory deadlines breached
-    | "DISCRETIONARY_MITIGATION"; // Fallback when above are weak or unavailable
+    | "DISCRETIONARY_MITIGATION" // Fallback when above are weak or unavailable
+    // Private Parking Challenge strategies
+    | "KEEPER_LIABILITY_CHALLENGE"  // User is keeper (not driver) AND NTK timing late/non-compliant
+    | "SIGNAGE_EVIDENCE_CHALLENGE"  // Signage unclear OR terms not prominently displayed
+    | "EVIDENCE_REQUEST_FIRST"      // Facts incomplete OR operator proof required
+    | "DISCRETIONARY_MITIGATION_PP"; // Fallback for private parking when above are weak
 
 /**
  * Strength signal for the chosen strategy.

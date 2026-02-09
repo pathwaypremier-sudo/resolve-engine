@@ -133,6 +133,67 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
         console.log(`[AssessmentEngine] Strength: ${strength_signal}`);
     }
 
+    // 4. Strategy Selection for PRIVATE_PARKING CHALLENGE cases
+    const isPrivateParking = facts.noticeType.value === "PRIVATE_PARKING";
+    const isPrivateParkingChallenge = input.rawAnswers.desired_outcome === "CHALLENGE";
+
+    if (isPrivateParking && isPrivateParkingChallenge) {
+        deliverable_type = "PRIVATE_PARKING_CHALLENGE";
+        
+        const summary = input.rawAnswers.summary?.toLowerCase() || "";
+        const isKeeper = input.rawAnswers.user_role === "KEEPER" || input.rawAnswers.user_role === "keeper";
+        const isDriver = input.rawAnswers.user_role === "DRIVER" || input.rawAnswers.user_role === "driver";
+        const noticeDate = facts.issueDate.value;
+        const eventDate = facts.eventDate.value;
+        
+        // Check for NTK timing issues (Notice to Keeper must be sent within specific timeframes)
+        const hasNtkTimingIssue = checkNtkTiming(noticeDate, eventDate);
+        
+        // Check for signage issues
+        const hasSignageIssue = summary.includes("signage") || summary.includes("sign") || 
+                               summary.includes("unclear") || summary.includes("obscured") || 
+                               summary.includes("missing") || summary.includes("terms") ||
+                               summary.includes("display");
+        
+        // Check for incomplete facts or need for operator proof
+        const hasFactsGaps = missingInfo.length > 2;
+        const needsOperatorProof = summary.includes("proof") || summary.includes("evidence") ||
+                                  summary.includes("documentation");
+        
+        // Ordered strategy selection (highest priority first)
+        if (isKeeper && !isDriver && hasNtkTimingIssue) {
+            chosen_strategy = "KEEPER_LIABILITY_CHALLENGE";
+            reasoning_notes = "Keeper liability challenge selected: User is keeper (not driver) and NTK timing appears late or non-compliant.";
+        } else if (hasSignageIssue) {
+            chosen_strategy = "SIGNAGE_EVIDENCE_CHALLENGE";
+            reasoning_notes = "Signage evidence challenge selected: Signage unclear or terms not prominently displayed.";
+        } else if (hasFactsGaps || needsOperatorProof) {
+            chosen_strategy = "EVIDENCE_REQUEST_FIRST";
+            reasoning_notes = `Evidence request strategy selected: Facts incomplete (${hasFactsGaps}) or operator proof required (${needsOperatorProof}).`;
+        } else {
+            chosen_strategy = "DISCRETIONARY_MITIGATION_PP";
+            reasoning_notes = "Discretionary mitigation strategy selected as fallback for private parking.";
+        }
+        
+        // Strength signal determination
+        const hasKeeperProtection = isKeeper && !isDriver && hasNtkTimingIssue;
+        const hasStrongSignageIssue = hasSignageIssue && hasDocs;
+        const hasKeyFacts = hasPcn && hasIssuer && hasDate;
+        const hasEvidence = hasDocs;
+        
+        if ((hasKeeperProtection || hasStrongSignageIssue) && hasKeyFacts) {
+            strength_signal = "STRONG";
+        } else if (hasKeyFacts && (hasSignageIssue || hasEvidence)) {
+            strength_signal = "MIXED";
+        } else {
+            strength_signal = "WEAK";
+        }
+        
+        console.log(`[AssessmentEngine] Deliverable: ${deliverable_type}`);
+        console.log(`[AssessmentEngine] Strategy: ${chosen_strategy}`);
+        console.log(`[AssessmentEngine] Strength: ${strength_signal}`);
+    }
+
     console.groupEnd();
 
     return {
@@ -146,6 +207,27 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
         strength_signal,
         reasoning_notes
     };
+}
+
+/**
+ * Check for NTK (Notice to Keeper) timing issues in private parking cases.
+ * The Protection of Freedoms Act 2012 requires operators to send NTK within specific timeframes.
+ */
+function checkNtkTiming(noticeDate: string | null, eventDate: string | null): boolean {
+    if (!noticeDate || !eventDate) return false;
+    
+    try {
+        const notice = new Date(noticeDate);
+        const event = new Date(eventDate);
+        
+        // NTK must typically be sent within 14 days of the parking event
+        const daysDiff = Math.floor((notice.getTime() - event.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff > 14) return true;
+        
+        return false;
+    } catch (e) {
+        return false;
+    }
 }
 
 /**
