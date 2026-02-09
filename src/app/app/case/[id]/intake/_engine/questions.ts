@@ -96,8 +96,8 @@ export function buildQuestions(ctx: Ctx): Question[] {
         {
             id: "summary",
             key: "summary",
-            label: "In one sentence: what happened?",
-            help: "Keep it factual and specific (this anchors your timeline).",
+            label: "Briefly describe what happened",
+            help: "Stick to the facts (what, where, when). Avoid opinions for now.",
             type: "text",
             required: true,
             group: "CORE",
