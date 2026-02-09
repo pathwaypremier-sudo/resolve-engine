@@ -89,20 +89,20 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
 
     if (isCouncilPCN && isChallenge) {
         deliverable_type = "COUNCIL_PCN_CHALLENGE";
-        
+
         const summary = input.rawAnswers.summary?.toLowerCase() || "";
         const noticeDate = facts.issueDate.value;
         const eventDate = facts.eventDate.value;
         const responseDate = input.rawAnswers.response_date;
-        
+
         // Check for evidence-related issues
         const hasSignageIssue = summary.includes("signage") || summary.includes("sign") || summary.includes("unclear") || summary.includes("obscured") || summary.includes("missing");
         const hasMarkingsIssue = summary.includes("marking") || summary.includes("line") || summary.includes("bay");
         const hasFactsGaps = missingInfo.length > 2;
-        
+
         // Check for timing issues
         const hasTimingIssue = checkTimingIssues(noticeDate, eventDate, responseDate);
-        
+
         // Strategy selection (ordered priority)
         if (hasSignageIssue || hasMarkingsIssue || hasFactsGaps) {
             chosen_strategy = "EVIDENCE_FIRST";
@@ -114,12 +114,12 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
             chosen_strategy = "DISCRETIONARY_MITIGATION";
             reasoning_notes = "Discretionary mitigation strategy selected as fallback.";
         }
-        
+
         // Strength signal determination
         const hasKeyFacts = hasPcn && hasIssuer && hasDate;
         const hasEvidence = hasDocs;
         const hasDetailedSummary = summary.length > 50;
-        
+
         if (hasKeyFacts && hasEvidence && hasDetailedSummary) {
             strength_signal = "STRONG";
         } else if (hasKeyFacts && (hasEvidence || hasDetailedSummary)) {
@@ -127,7 +127,7 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
         } else {
             strength_signal = "WEAK";
         }
-        
+
         console.log(`[AssessmentEngine] Deliverable: ${deliverable_type}`);
         console.log(`[AssessmentEngine] Strategy: ${chosen_strategy}`);
         console.log(`[AssessmentEngine] Strength: ${strength_signal}`);
@@ -139,27 +139,27 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
 
     if (isPrivateParking && isPrivateParkingChallenge) {
         deliverable_type = "PRIVATE_PARKING_CHALLENGE";
-        
+
         const summary = input.rawAnswers.summary?.toLowerCase() || "";
         const isKeeper = input.rawAnswers.user_role === "KEEPER" || input.rawAnswers.user_role === "keeper";
         const isDriver = input.rawAnswers.user_role === "DRIVER" || input.rawAnswers.user_role === "driver";
         const noticeDate = facts.issueDate.value;
         const eventDate = facts.eventDate.value;
-        
+
         // Check for NTK timing issues (Notice to Keeper must be sent within specific timeframes)
         const hasNtkTimingIssue = checkNtkTiming(noticeDate, eventDate);
-        
+
         // Check for signage issues
-        const hasSignageIssue = summary.includes("signage") || summary.includes("sign") || 
-                               summary.includes("unclear") || summary.includes("obscured") || 
-                               summary.includes("missing") || summary.includes("terms") ||
-                               summary.includes("display");
-        
+        const hasSignageIssue = summary.includes("signage") || summary.includes("sign") ||
+            summary.includes("unclear") || summary.includes("obscured") ||
+            summary.includes("missing") || summary.includes("terms") ||
+            summary.includes("display");
+
         // Check for incomplete facts or need for operator proof
         const hasFactsGaps = missingInfo.length > 2;
         const needsOperatorProof = summary.includes("proof") || summary.includes("evidence") ||
-                                  summary.includes("documentation");
-        
+            summary.includes("documentation");
+
         // Ordered strategy selection (highest priority first)
         if (isKeeper && !isDriver && hasNtkTimingIssue) {
             chosen_strategy = "KEEPER_LIABILITY_CHALLENGE";
@@ -174,13 +174,13 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
             chosen_strategy = "DISCRETIONARY_MITIGATION_PP";
             reasoning_notes = "Discretionary mitigation strategy selected as fallback for private parking.";
         }
-        
+
         // Strength signal determination
         const hasKeeperProtection = isKeeper && !isDriver && hasNtkTimingIssue;
         const hasStrongSignageIssue = hasSignageIssue && hasDocs;
         const hasKeyFacts = hasPcn && hasIssuer && hasDate;
         const hasEvidence = hasDocs;
-        
+
         if ((hasKeeperProtection || hasStrongSignageIssue) && hasKeyFacts) {
             strength_signal = "STRONG";
         } else if (hasKeyFacts && (hasSignageIssue || hasEvidence)) {
@@ -188,9 +188,41 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
         } else {
             strength_signal = "WEAK";
         }
-        
+
         console.log(`[AssessmentEngine] Deliverable: ${deliverable_type}`);
         console.log(`[AssessmentEngine] Strategy: ${chosen_strategy}`);
+        console.log(`[AssessmentEngine] Strength: ${strength_signal}`);
+    }
+
+    // 5. Strategy Selection for PRIVATE_PARKING AFFORDABILITY cases
+    const isAffordability = input.rawAnswers.user_intent === "AFFORDABILITY";
+
+    if (isPrivateParking && isAffordability) {
+        deliverable_type = "PRIVATE_PARKING_AFFORDABILITY";
+
+        // For affordability cases, strategy is determined by the renderer based on ability_to_pay
+        // (MITIGATION or PAYMENT_REQUEST). No chosen_strategy is set here.
+
+        // Strength signal determination for affordability
+        const hasAffordabilityReason = !!input.rawAnswers.affordability_reason;
+        const hasAbilityToPayNow = !!input.rawAnswers.ability_to_pay_now;
+        const hasPreferredOutcome = !!input.rawAnswers.preferred_outcome;
+        const hasKeyFacts = hasPcn && hasIssuer && hasDate;
+        const hasEvidence = hasDocs;
+
+        // Strength is based on completeness of affordability info
+        if (hasAffordabilityReason && hasAbilityToPayNow && hasPreferredOutcome && hasKeyFacts) {
+            strength_signal = "STRONG";
+            reasoning_notes = "Strong case: All affordability information provided with complete key facts.";
+        } else if (hasKeyFacts && (hasAffordabilityReason || hasAbilityToPayNow)) {
+            strength_signal = "MIXED";
+            reasoning_notes = "Mixed case: Some affordability information provided but incomplete.";
+        } else {
+            strength_signal = "WEAK";
+            reasoning_notes = "Weak case: Missing key affordability information or case facts.";
+        }
+
+        console.log(`[AssessmentEngine] Deliverable: ${deliverable_type}`);
         console.log(`[AssessmentEngine] Strength: ${strength_signal}`);
     }
 
@@ -215,15 +247,15 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
  */
 function checkNtkTiming(noticeDate: string | null, eventDate: string | null): boolean {
     if (!noticeDate || !eventDate) return false;
-    
+
     try {
         const notice = new Date(noticeDate);
         const event = new Date(eventDate);
-        
+
         // NTK must typically be sent within 14 days of the parking event
         const daysDiff = Math.floor((notice.getTime() - event.getTime()) / (1000 * 60 * 60 * 24));
         if (daysDiff > 14) return true;
-        
+
         return false;
     } catch (e) {
         return false;
@@ -235,22 +267,22 @@ function checkNtkTiming(noticeDate: string | null, eventDate: string | null): bo
  */
 function checkTimingIssues(noticeDate: string | null, eventDate: string | null, responseDate: string | undefined): boolean {
     if (!noticeDate || !eventDate) return false;
-    
+
     try {
         const notice = new Date(noticeDate);
         const event = new Date(eventDate);
-        
+
         // Check if notice was issued more than 14 days after event (typical statutory limit)
         const daysDiff = Math.floor((notice.getTime() - event.getTime()) / (1000 * 60 * 60 * 24));
         if (daysDiff > 14) return true;
-        
+
         // Check if response deadline might be breached
         if (responseDate) {
             const response = new Date(responseDate);
             const daysToRespond = Math.floor((response.getTime() - notice.getTime()) / (1000 * 60 * 60 * 24));
             if (daysToRespond > 28) return true; // Typical response window is 28 days
         }
-        
+
         return false;
     } catch (e) {
         return false;

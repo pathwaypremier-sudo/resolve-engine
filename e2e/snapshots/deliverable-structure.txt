@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-02-09T22:20:21.648Z",
+  "fixtureData": {
+    "issuer": "Private parking company",
+    "noticeType": "Private Parking Charge",
+    "eventDate": "2026-01-15",
+    "issueDate": "2026-01-20",
+    "vrm": "AB12CDE",
+    "pcnNumber": "PCN123456"
+  },
+  "requiredSections": [
+    "Case Summary",
+    "Procedural Position",
+    "Key Facts",
+    "Assessment",
+    "Recommended Action"
+  ],
+  "foundSections": [
+    "Key Facts",
+    "Assessment"
+  ],
+  "pageLength": 14703
+}
