@@ -28,7 +28,39 @@ export function buildQuestions(ctx: Ctx): Question[] {
     // Constitution (PDF): act fast, keep timeline, written proof, reference numbers, set deadlines.
     // We implement that as: minimal core facts + prior action + desired outcome + urgency.
     const qs: Question[] = [
+        // PHASE A: ROUTING QUESTIONS
+    {
+      id: "notice_type",
+      key: "notice_type",
+      label: "What type of notice did you receive?",
+      help: "This helps us provide the most relevant guidance for your situation.",
+      type: "select",
+      required: true,
+      options: [
+        { value: "COUNCIL_PCN", label: "Council Penalty Charge Notice (PCN)" },
+        { value: "PRIVATE_PARKING", label: "Private Parking Charge" },
+        { value: "CAMERA_MATTER", label: "Camera-related matter (e.g., bus lane, yellow box)" },
+      ],
+      group: "CORE",
+    },
+    {
+      id: "user_intent",
+      key: "user_intent",
+      label: "What would you like to do?",
+      help: "Choose whether you want to challenge the notice or discuss payment options.",
+      type: "select",
+      required: true,
+      options: [
+        { value: "CHALLENGE", label: "Challenge the notice" },
+        { value: "AFFORDABILITY", label: "I want to pay but cannot afford it" },
+      ],
+      group: "CORE",
+    },
+
         // CORE: basic facts
+
+
+
         {
             id: "issuer",
             key: "issuer",
