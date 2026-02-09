@@ -151,6 +151,64 @@ export function buildQuestions(ctx: Ctx): Question[] {
             group: "CORE",
         },
 
+        // CAMERA MATTER QUESTIONS (only when notice_type = CAMERA_MATTER)
+        {
+            id: "camera_involved",
+            key: "camera_involved",
+            label: "Was this enforced using a camera?",
+            type: "select",
+            required: true,
+            options: [
+                { value: "YES", label: "Yes" },
+                { value: "NO", label: "No" },
+                { value: "UNKNOWN", label: "Not sure" },
+            ],
+            when: (c) => c.answers.notice_type === "CAMERA_MATTER",
+            group: "CORE",
+        },
+        {
+            id: "received_within_14_days",
+            key: "received_within_14_days",
+            label: "Did you receive the notice within 14 days of the event?",
+            type: "select",
+            required: true,
+            options: [
+                { value: "YES", label: "Yes" },
+                { value: "NO", label: "No" },
+                { value: "NOT_SURE", label: "Not sure" },
+            ],
+            when: (c) => c.answers.notice_type === "CAMERA_MATTER",
+            group: "CORE",
+        },
+        {
+            id: "signage_clearly_visible",
+            key: "signage_clearly_visible",
+            label: "Were the restriction or speed signs clearly visible?",
+            type: "select",
+            required: true,
+            options: [
+                { value: "YES", label: "Yes" },
+                { value: "NO", label: "No" },
+                { value: "NOT_SURE", label: "Not sure" },
+            ],
+            when: (c) => c.answers.notice_type === "CAMERA_MATTER",
+            group: "CORE",
+        },
+        {
+            id: "temporary_roadworks",
+            key: "temporary_roadworks",
+            label: "Was this in temporary roadworks?",
+            type: "select",
+            required: true,
+            options: [
+                { value: "YES", label: "Yes" },
+                { value: "NO", label: "No" },
+                { value: "NOT_SURE", label: "Not sure" },
+            ],
+            when: (c) => c.answers.notice_type === "CAMERA_MATTER",
+            group: "CORE",
+        },
+
         // PROCEDURE: Branch-specific + outcome
         {
             id: "council_stage",
