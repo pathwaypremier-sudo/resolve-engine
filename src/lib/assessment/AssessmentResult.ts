@@ -10,6 +10,22 @@ export type AssessmentVerdict =
     | "UNSUPPORTED";    // Case type or circumstances not covered by engine
 
 /**
+ * Strategy for COUNCIL_PCN CHALLENGE cases.
+ */
+export type ChallengeStrategy =
+    | "EVIDENCE_FIRST"           // Signage unclear OR markings unclear OR facts incomplete
+    | "PROCEDURAL_TIMING"        // Notice timing late OR statutory deadlines breached
+    | "DISCRETIONARY_MITIGATION"; // Fallback when above are weak or unavailable
+
+/**
+ * Strength signal for the chosen strategy.
+ */
+export type StrengthSignal =
+    | "STRONG"  // Key facts present AND evidence supports strategy
+    | "MIXED"   // Some supporting facts but gaps remain
+    | "WEAK";   // Strategy possible but evidence/facts are thin
+
+/**
  * Reference to a source of authority.
  */
 export type AssessmentCitation = {
@@ -64,4 +80,16 @@ export type AssessmentResult = {
 
     /** ISO timestamp of generation */
     generatedAt: string;
+
+    /** Deliverable type (for COUNCIL_PCN CHALLENGE cases) */
+    deliverable_type?: string;
+
+    /** Chosen strategy (for COUNCIL_PCN CHALLENGE cases) */
+    chosen_strategy?: ChallengeStrategy;
+
+    /** Strength signal (for COUNCIL_PCN CHALLENGE cases) */
+    strength_signal?: StrengthSignal;
+
+    /** Internal reasoning notes (for COUNCIL_PCN CHALLENGE cases) */
+    reasoning_notes?: string;
 };

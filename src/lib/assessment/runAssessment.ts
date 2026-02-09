@@ -1,5 +1,5 @@
 import type { AssessmentInput } from "./AssessmentInput";
-import type { AssessmentResult, AssessmentCheck, AssessmentVerdict } from "./AssessmentResult";
+import type { AssessmentResult, AssessmentCheck, AssessmentVerdict, ChallengeStrategy, StrengthSignal } from "./AssessmentResult";
 import type { CaseFacts } from "@/lib/caseFacts/getCaseFacts";
 
 /**
@@ -77,6 +77,62 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
 
     console.log(`[AssessmentEngine] Verdict: ${verdict}`);
     console.log(`[AssessmentEngine] Missing: ${missingInfo.join(", ")}`);
+
+    // 3. Strategy Selection for COUNCIL_PCN CHALLENGE cases
+    let deliverable_type: string | undefined;
+    let chosen_strategy: ChallengeStrategy | undefined;
+    let strength_signal: StrengthSignal | undefined;
+    let reasoning_notes: string | undefined;
+
+    const isCouncilPCN = facts.noticeType.value === "COUNCIL_PCN";
+    const isChallenge = input.rawAnswers.desired_outcome === "CANCEL" || input.rawAnswers.council_appealed === "NO";
+
+    if (isCouncilPCN && isChallenge) {
+        deliverable_type = "COUNCIL_PCN_CHALLENGE";
+        
+        const summary = input.rawAnswers.summary?.toLowerCase() || "";
+        const noticeDate = facts.issueDate.value;
+        const eventDate = facts.eventDate.value;
+        const responseDate = input.rawAnswers.response_date;
+        
+        // Check for evidence-related issues
+        const hasSignageIssue = summary.includes("signage") || summary.includes("sign") || summary.includes("unclear") || summary.includes("obscured") || summary.includes("missing");
+        const hasMarkingsIssue = summary.includes("marking") || summary.includes("line") || summary.includes("bay");
+        const hasFactsGaps = missingInfo.length > 2;
+        
+        // Check for timing issues
+        const hasTimingIssue = checkTimingIssues(noticeDate, eventDate, responseDate);
+        
+        // Strategy selection (ordered priority)
+        if (hasSignageIssue || hasMarkingsIssue || hasFactsGaps) {
+            chosen_strategy = "EVIDENCE_FIRST";
+            reasoning_notes = `Evidence-based strategy selected. Signage issue: ${hasSignageIssue}, Markings issue: ${hasMarkingsIssue}, Facts gaps: ${hasFactsGaps}`;
+        } else if (hasTimingIssue) {
+            chosen_strategy = "PROCEDURAL_TIMING";
+            reasoning_notes = "Procedural timing strategy selected due to potential statutory deadline issues.";
+        } else {
+            chosen_strategy = "DISCRETIONARY_MITIGATION";
+            reasoning_notes = "Discretionary mitigation strategy selected as fallback.";
+        }
+        
+        // Strength signal determination
+        const hasKeyFacts = hasPcn && hasIssuer && hasDate;
+        const hasEvidence = hasDocs;
+        const hasDetailedSummary = summary.length > 50;
+        
+        if (hasKeyFacts && hasEvidence && hasDetailedSummary) {
+            strength_signal = "STRONG";
+        } else if (hasKeyFacts && (hasEvidence || hasDetailedSummary)) {
+            strength_signal = "MIXED";
+        } else {
+            strength_signal = "WEAK";
+        }
+        
+        console.log(`[AssessmentEngine] Deliverable: ${deliverable_type}`);
+        console.log(`[AssessmentEngine] Strategy: ${chosen_strategy}`);
+        console.log(`[AssessmentEngine] Strength: ${strength_signal}`);
+    }
+
     console.groupEnd();
 
     return {
@@ -84,6 +140,37 @@ export async function runAssessment(input: AssessmentInput): Promise<AssessmentR
         checks,
         reasons,
         missingInfo,
-        generatedAt
+        generatedAt,
+        deliverable_type,
+        chosen_strategy,
+        strength_signal,
+        reasoning_notes
     };
+}
+
+/**
+ * Check for timing issues that might trigger PROCEDURAL_TIMING strategy.
+ */
+function checkTimingIssues(noticeDate: string | null, eventDate: string | null, responseDate: string | undefined): boolean {
+    if (!noticeDate || !eventDate) return false;
+    
+    try {
+        const notice = new Date(noticeDate);
+        const event = new Date(eventDate);
+        
+        // Check if notice was issued more than 14 days after event (typical statutory limit)
+        const daysDiff = Math.floor((notice.getTime() - event.getTime()) / (1000 * 60 * 60 * 24));
+        if (daysDiff > 14) return true;
+        
+        // Check if response deadline might be breached
+        if (responseDate) {
+            const response = new Date(responseDate);
+            const daysToRespond = Math.floor((response.getTime() - notice.getTime()) / (1000 * 60 * 60 * 24));
+            if (daysToRespond > 28) return true; // Typical response window is 28 days
+        }
+        
+        return false;
+    } catch (e) {
+        return false;
+    }
 }
