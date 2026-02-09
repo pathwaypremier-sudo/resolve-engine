@@ -140,7 +140,7 @@ function renderRecommendedStrategy(
             title: "Discretionary Mitigation",
             description: "Request cancellation based on mitigating circumstances and discretionary grounds when procedural or evidence-based challenges are weak."
         },
-        // Private parking strategies (should not be used in Council PCN context)
+        // Private parking strategies (should not be used in Council PCN context but required for type completeness)
         KEEPER_LIABILITY_CHALLENGE: {
             title: "Keeper Liability Challenge",
             description: "Challenge based on keeper liability and Notice to Keeper timing issues."
@@ -396,6 +396,39 @@ function renderFallback(strategy: ChallengeStrategy): FallbackSection {
                 "Gather supporting evidence for your circumstances",
                 "Obtain medical or emergency service records if relevant",
                 "Consider payment plan if challenge is unsuccessful"
+            ]
+        },
+        // Private parking strategies (should not be used in Council PCN context but required for type completeness)
+        KEEPER_LIABILITY_CHALLENGE: {
+            alternatives: [
+                "Not applicable to Council PCN cases"
+            ],
+            nextSteps: [
+                "Not applicable to Council PCN cases"
+            ]
+        },
+        SIGNAGE_EVIDENCE_CHALLENGE: {
+            alternatives: [
+                "Not applicable to Council PCN cases"
+            ],
+            nextSteps: [
+                "Not applicable to Council PCN cases"
+            ]
+        },
+        EVIDENCE_REQUEST_FIRST: {
+            alternatives: [
+                "Not applicable to Council PCN cases"
+            ],
+            nextSteps: [
+                "Not applicable to Council PCN cases"
+            ]
+        },
+        DISCRETIONARY_MITIGATION_PP: {
+            alternatives: [
+                "Not applicable to Council PCN cases"
+            ],
+            nextSteps: [
+                "Not applicable to Council PCN cases"
             ]
         }
     };
