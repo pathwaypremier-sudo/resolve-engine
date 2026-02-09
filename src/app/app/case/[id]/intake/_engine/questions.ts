@@ -28,7 +28,87 @@ export function buildQuestions(ctx: Ctx): Question[] {
     // Constitution (PDF): act fast, keep timeline, written proof, reference numbers, set deadlines.
     // We implement that as: minimal core facts + prior action + desired outcome + urgency.
     const qs: Question[] = [
+        // PHASE A: ROUTING QUESTIONS
+    {
+      id: "notice_type",
+      key: "notice_type",
+      label: "What type of notice did you receive?",
+      help: "This helps us provide the most relevant guidance for your situation.",
+      type: "select",
+      required: true,
+      options: [
+        { value: "COUNCIL_PCN", label: "Council Penalty Charge Notice (PCN)" },
+        { value: "PRIVATE_PARKING", label: "Private Parking Charge" },
+        { value: "CAMERA_MATTER", label: "Camera-related matter (e.g., bus lane, yellow box)" },
+      ],
+      group: "CORE",
+    },
+    {
+      id: "user_intent",
+      key: "user_intent",
+      label: "What would you like to do?",
+      help: "Choose whether you want to challenge the notice or discuss payment options.",
+      type: "select",
+      required: true,
+      options: [
+        { value: "CHALLENGE", label: "Challenge the notice" },
+        { value: "AFFORDABILITY", label: "I want to pay but cannot afford it" },
+      ],
+      group: "CORE",
+    },
+
+        // AFFORDABILITY QUESTIONS (only when user_intent = AFFORDABILITY)
+    {
+      id: "affordability_reason",
+      key: "affordability_reason",
+      label: "Why can't you afford to pay right now?",
+      type: "select",
+      required: true,
+      options: [
+        { value: "LOW_INCOME", label: "Low income" },
+        { value: "TEMP_HARDSHIP", label: "Temporary hardship" },
+        { value: "DEBT_PRESSURE", label: "Debt pressure" },
+        { value: "BENEFITS", label: "Benefits / support" },
+        { value: "OTHER", label: "Other" },
+      ],
+      when: (c) => c.answers.user_intent === "AFFORDABILITY",
+      group: "CORE",
+    },
+    {
+      id: "ability_to_pay_now",
+      key: "ability_to_pay_now",
+      label: "What can you realistically do?",
+      type: "select",
+      required: true,
+      options: [
+        { value: "NONE", label: "I can't pay anything right now" },
+        { value: "SMALL_AMOUNT", label: "I can pay a small amount" },
+        { value: "CAN_PAY_LATER", label: "I can pay later" },
+        { value: "UNKNOWN", label: "Not sure" },
+      ],
+      when: (c) => c.answers.user_intent === "AFFORDABILITY",
+      group: "CORE",
+    },
+    {
+      id: "preferred_outcome",
+      key: "preferred_outcome",
+      label: "What outcome do you want help requesting?",
+      type: "select",
+      required: true,
+      options: [
+        { value: "TIME_TO_PAY", label: "More time to pay" },
+        { value: "INSTALLMENTS", label: "Installments" },
+        { value: "REDUCTION_DISCRETION", label: "Discretion / reduction (if possible)" },
+        { value: "ADVICE_ONLY", label: "Advice only (I'll handle it myself)" },
+      ],
+      when: (c) => c.answers.user_intent === "AFFORDABILITY",
+      group: "CORE",
+    },
+
         // CORE: basic facts
+
+
+
         {
             id: "issuer",
             key: "issuer",
@@ -64,10 +144,68 @@ export function buildQuestions(ctx: Ctx): Question[] {
         {
             id: "summary",
             key: "summary",
-            label: "In one sentence: what happened?",
-            help: "Keep it factual and specific (this anchors your timeline).",
+            label: "Briefly describe what happened",
+            help: "Stick to the facts (what, where, when). Avoid opinions for now.",
             type: "text",
             required: true,
+            group: "CORE",
+        },
+
+        // CAMERA MATTER QUESTIONS (only when notice_type = CAMERA_MATTER)
+        {
+            id: "camera_involved",
+            key: "camera_involved",
+            label: "Was this enforced using a camera?",
+            type: "select",
+            required: true,
+            options: [
+                { value: "YES", label: "Yes" },
+                { value: "NO", label: "No" },
+                { value: "UNKNOWN", label: "Not sure" },
+            ],
+            when: (c) => c.answers.notice_type === "CAMERA_MATTER",
+            group: "CORE",
+        },
+        {
+            id: "received_within_14_days",
+            key: "received_within_14_days",
+            label: "Did you receive the notice within 14 days of the event?",
+            type: "select",
+            required: true,
+            options: [
+                { value: "YES", label: "Yes" },
+                { value: "NO", label: "No" },
+                { value: "NOT_SURE", label: "Not sure" },
+            ],
+            when: (c) => c.answers.notice_type === "CAMERA_MATTER",
+            group: "CORE",
+        },
+        {
+            id: "signage_clearly_visible",
+            key: "signage_clearly_visible",
+            label: "Were the restriction or speed signs clearly visible?",
+            type: "select",
+            required: true,
+            options: [
+                { value: "YES", label: "Yes" },
+                { value: "NO", label: "No" },
+                { value: "NOT_SURE", label: "Not sure" },
+            ],
+            when: (c) => c.answers.notice_type === "CAMERA_MATTER",
+            group: "CORE",
+        },
+        {
+            id: "temporary_roadworks",
+            key: "temporary_roadworks",
+            label: "Was this in temporary roadworks?",
+            type: "select",
+            required: true,
+            options: [
+                { value: "YES", label: "Yes" },
+                { value: "NO", label: "No" },
+                { value: "NOT_SURE", label: "Not sure" },
+            ],
+            when: (c) => c.answers.notice_type === "CAMERA_MATTER",
             group: "CORE",
         },
 

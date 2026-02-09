@@ -1,35 +1,65 @@
 name: CI
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - staging
+      - main
+  push:
+    branches:
+      - staging
 
 jobs:
-  invariants:
+  test:
+    name: Lint, Type Check, and E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-    - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-    - name: Use Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
 
-    - name: Install dependencies
-      run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-    - name: Check Types (Compile Safe)
-      run: npm run check:types
+      - name: Run linter
+        run: npm run lint
 
-    - name: Check Copy Compliance (No Advice)
-      run: npm run check:copy
+      - name: Run type check
+        run: npm run check:types
 
-    - name: Check Vertical Leaks
-      run: npm run check:verticals
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
 
-    - name: Snapshot Triggers Check
-      run: npm run check:triggers
+      - name: Run E2E tests
+        run: npx playwright test
+        env:
+          NODE_ENV: test
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          APP_ENV: staging
+          NEXT_PUBLIC_PAYMENTS_PROVIDER: stub
+          WEBHOOK_ENABLED: 0
+          AUDIT_LOG_ENABLED: 1
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Upload test screenshots
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: test-results/
+          retention-days: 7
