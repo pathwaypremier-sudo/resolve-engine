@@ -57,6 +57,54 @@ export function buildQuestions(ctx: Ctx): Question[] {
       group: "CORE",
     },
 
+        // AFFORDABILITY QUESTIONS (only when user_intent = AFFORDABILITY)
+    {
+      id: "affordability_reason",
+      key: "affordability_reason",
+      label: "Why can't you afford to pay right now?",
+      type: "select",
+      required: true,
+      options: [
+        { value: "LOW_INCOME", label: "Low income" },
+        { value: "TEMP_HARDSHIP", label: "Temporary hardship" },
+        { value: "DEBT_PRESSURE", label: "Debt pressure" },
+        { value: "BENEFITS", label: "Benefits / support" },
+        { value: "OTHER", label: "Other" },
+      ],
+      when: (c) => c.answers.user_intent === "AFFORDABILITY",
+      group: "CORE",
+    },
+    {
+      id: "ability_to_pay_now",
+      key: "ability_to_pay_now",
+      label: "What can you realistically do?",
+      type: "select",
+      required: true,
+      options: [
+        { value: "NONE", label: "I can't pay anything right now" },
+        { value: "SMALL_AMOUNT", label: "I can pay a small amount" },
+        { value: "CAN_PAY_LATER", label: "I can pay later" },
+        { value: "UNKNOWN", label: "Not sure" },
+      ],
+      when: (c) => c.answers.user_intent === "AFFORDABILITY",
+      group: "CORE",
+    },
+    {
+      id: "preferred_outcome",
+      key: "preferred_outcome",
+      label: "What outcome do you want help requesting?",
+      type: "select",
+      required: true,
+      options: [
+        { value: "TIME_TO_PAY", label: "More time to pay" },
+        { value: "INSTALLMENTS", label: "Installments" },
+        { value: "REDUCTION_DISCRETION", label: "Discretion / reduction (if possible)" },
+        { value: "ADVICE_ONLY", label: "Advice only (I'll handle it myself)" },
+      ],
+      when: (c) => c.answers.user_intent === "AFFORDABILITY",
+      group: "CORE",
+    },
+
         // CORE: basic facts
 
 
