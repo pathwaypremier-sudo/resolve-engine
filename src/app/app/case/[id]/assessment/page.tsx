@@ -40,14 +40,7 @@ import { flags } from "@/lib/flags/flags";
 import { Copy, Download, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import { saveAssessmentResultAction, loadAssessmentResultAction } from "./actions";
 import { getOrCreateStubIdentity } from "@/lib/integrations/auth/stubAuth";
-
-// ... inside component ...
-
-
-
-
-
-
+import NotebookLMIntegrationPanel from "@/components/case/NotebookLMIntegrationPanel";
 
 type DocMeta = {
     name: string;
@@ -281,74 +274,15 @@ export default function AssessmentPage() {
                             </PanelBody>
                         </Panel>
 
-                        {/* Gated Feature: NotebookLM Pack Download */}
+
+                        {/* Gated Feature: NotebookLM Integration Panel - Using new component approach */}
                         {flags.notebookLM.isEnabled() && (
-                            <Panel>
-                                <PanelHeader title="AI Assistant Pack" />
-                                <PanelBody>
-                                    <div className="space-y-4">
-                                        <div className="flex items-start justify-between">
-                                            <div>
-                                                <p className="text-sm text-zinc-600">
-                                                    Download a specialized "Source Pack" to use with Google NotebookLM.
-                                                    This enables you to chat with your case evidence and generate additional drafts.
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <button
-                                            onClick={handleDownloadPack}
-                                            disabled={isDownloading}
-                                            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 text-sm font-medium transition-colors"
-                                        >
-                                            {isDownloading ? (
-                                                <>
-                                                    <span className="animate-spin">⏳</span> Generating...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Download className="w-4 h-4" /> Download Source Pack
-                                                </>
-                                            )}
-                                        </button>
-
-                                        {/* Instructions (Collapsible) */}
-                                        <div className="border rounded-lg border-zinc-200 overflow-hidden bg-zinc-50">
-                                            <button
-                                                onClick={() => setShowPackInstructions(!showPackInstructions)}
-                                                className="w-full flex items-center justify-between p-3 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
-                                            >
-                                                <span>How to use in NotebookLM</span>
-                                                {showPackInstructions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                                            </button>
-
-                                            {showPackInstructions && (
-                                                <div className="p-3 border-t border-zinc-200 space-y-3 bg-white">
-                                                    <ol className="list-decimal list-inside text-sm text-zinc-600 space-y-1">
-                                                        <li>Click "Download Source Pack" above.</li>
-                                                        <li>Unzip the file locally.</li>
-                                                        <li>Go to <a href="https://notebooklm.google.com" target="_blank" className="text-indigo-600 hover:underline">NotebookLM</a> and create a new notebook.</li>
-                                                        <li>Upload all the files from the pack as sources.</li>
-                                                        <li>Paste the prompt below into the chat box.</li>
-                                                    </ol>
-
-                                                    <div className="mt-3">
-                                                        <div className="flex items-center justify-between mb-1">
-                                                            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">Recommended Prompt</span>
-                                                            <button onClick={copyPrompt} className="text-xs flex items-center gap-1 text-indigo-600 hover:text-indigo-700">
-                                                                <Copy className="w-3 h-3" /> Copy
-                                                            </button>
-                                                        </div>
-                                                        <div className="p-2 bg-zinc-100 rounded text-xs font-mono text-zinc-700 whitespace-pre-wrap border border-zinc-200 max-h-40 overflow-y-auto">
-                                                            {getNotebookLMPromptTemplate(input, result)}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </PanelBody>
-                            </Panel>
+                            <NotebookLMIntegrationPanel
+                                input={input}
+                                result={result}
+                                isDownloading={isDownloading}
+                                onDownload={handleDownloadPack}
+                            />
                         )}
 
 
