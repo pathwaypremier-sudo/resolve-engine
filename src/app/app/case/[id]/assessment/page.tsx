@@ -42,14 +42,6 @@ import { saveAssessmentResultAction, loadAssessmentResultAction } from "./action
 import { getOrCreateStubIdentity } from "@/lib/integrations/auth/stubAuth";
 import NotebookLMIntegrationPanel from "@/components/case/NotebookLMIntegrationPanel";
 
-// ... inside component ...
-
-
-
-
-
-
-
 type DocMeta = {
     name: string;
     type: string;
@@ -283,7 +275,7 @@ export default function AssessmentPage() {
                         </Panel>
 
 
-                        {/* Gated Feature: NotebookLM Pack Download */}
+                        {/* Gated Feature: NotebookLM Integration Panel - Using new component approach */}
                         {flags.notebookLM.isEnabled() && (
                             <NotebookLMIntegrationPanel
                                 input={input}
