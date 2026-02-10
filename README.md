@@ -1,3 +1,24 @@
+# ❄️ RESOLVE ENGINE - MAINTENANCE MODE (FROZEN)
+
+> **STATUS: FROZEN FOR WEBSITE-FIRST FOCUS**
+> 
+> **Active Delivery:** Website-first DIY appeal builder (£1.99)
+> **Repo Status:** Reference Engine Only. No new app features.
+> **Allowed Changes:** Bugfixes, Security Patches, Test Fixes Only.
+
+This repository (`resolve-engine`) contains the core Strategy Engine, NotebookLM Contracts, and Enforcement Logic. It is currently frozen to allow the team to focus on the lightweight, website-first DIY service.
+
+## 🛑 Contribution Rules
+1. **No New Features**: Do not add UI features or expand the scope of this Next.js app.
+2. **Infrastructure/DB Locked**: No migrations or infra changes allowed.
+3. **PR Discipline**:
+   - All PRs must target `staging`.
+   - Squash & Merge only.
+   - Delete branch after merge.
+4. **Docs First**: If you are planning the website work, use the `docs/` folder here or the separate website repo.
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
