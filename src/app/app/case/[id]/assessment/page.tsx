@@ -102,7 +102,7 @@ export default function AssessmentPage() {
     }
 
     const copyPrompt = () => {
-        navigator.clipboard.writeText(getNotebookLMPromptTemplate());
+        navigator.clipboard.writeText(getNotebookLMPromptTemplate(input, result));
         alert("Prompt copied to clipboard!");
     };
 
@@ -340,7 +340,7 @@ export default function AssessmentPage() {
                                                             </button>
                                                         </div>
                                                         <div className="p-2 bg-zinc-100 rounded text-xs font-mono text-zinc-700 whitespace-pre-wrap border border-zinc-200 max-h-40 overflow-y-auto">
-                                                            {getNotebookLMPromptTemplate()}
+                                                            {getNotebookLMPromptTemplate(input, result)}
                                                         </div>
                                                     </div>
                                                 </div>
