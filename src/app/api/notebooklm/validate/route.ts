@@ -48,10 +48,10 @@ export async function POST(request: NextRequest) {
         }
 
         if (rawText.length > MAX_RAWTEXT_CHARS) {
-            log.warn("NotebookLM validate rejected: rawText too long", { 
-                length: rawText.length, 
+            log.warn("NotebookLM validate rejected: rawText too long", {
+                length: rawText.length,
                 maxAllowed: MAX_RAWTEXT_CHARS,
-                actorId 
+                actorId
             });
             return NextResponse.json(formatErrorResponse("INPUT_TOO_LONG"), { status: 400 });
         }
@@ -63,10 +63,10 @@ export async function POST(request: NextRequest) {
 
         const safeCaseId = typeof caseId === "string" ? caseId : undefined;
 
-        log.info("Processing NotebookLM validation", { 
-            caseId: safeCaseId, 
+        log.info("Processing NotebookLM validation", {
+            caseId: safeCaseId,
             actorId,
-            rawTextLength: rawText.length 
+            rawTextLength: rawText.length
         });
 
         // 5. Pass untrusted input through the safety adapter

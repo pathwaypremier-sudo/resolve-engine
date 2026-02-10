@@ -7,6 +7,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { persistence } from "@/lib/persistence/PersistenceAdapter";
+import { ERROR_COPY } from "@/lib/notebooklm-contract/errorCopy";
 
 type RateLimitResult =
     | { ok: true; ip: string; bucket: string; count: number }
@@ -99,8 +100,15 @@ export function enforceValidateRateLimit(req: NextRequest): RateLimitResult {
  * Helper to return 429 rate limit response.
  */
 export function rateLimitResponse(): NextResponse {
+    const { title, explanation, nextStep } = ERROR_COPY.RATE_LIMIT;
     return NextResponse.json(
-        { ok: false, error: "too_many_requests" },
+        {
+            ok: false,
+            error: "too_many_requests",
+            title,
+            explanation,
+            nextStep
+        },
         { status: 429 }
     );
 }

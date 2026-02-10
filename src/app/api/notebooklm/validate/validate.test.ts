@@ -39,10 +39,17 @@ vi.mock("@/lib/auth/session.server", () => ({
     })),
 }));
 
+
 vi.mock("@/lib/rateLimit", () => ({
     enforceValidateRateLimit: vi.fn(),
     rateLimitResponse: vi.fn(() => ({
-        json: async () => ({ ok: false, error: "too_many_requests" }),
+        json: async () => ({
+            ok: false,
+            error: "too_many_requests",
+            title: "Please wait a moment",
+            explanation: "We've received several requests...",
+            nextStep: "Please wait a minute and try again."
+        }),
         status: 429,
         ok: false,
     })),
@@ -100,7 +107,11 @@ describe("POST /api/notebooklm/validate", () => {
 
         const res: any = await POST(req);
         expect(res.status).toBe(429);
-        expect(await res.json()).toEqual({ ok: false, error: "too_many_requests" });
+        const json = await res.json();
+        expect(json.ok).toBe(false);
+        expect(json.error).toBe("too_many_requests");
+        expect(json.title).toBeDefined();
+        expect(json.explanation).toBeDefined();
     });
 
     it("should return 400 if rawText exceeds maximum length", async () => {
@@ -134,6 +145,7 @@ describe("POST /api/notebooklm/validate", () => {
         expect(json.explanation).toBeDefined();
         expect(json.nextStep).toBeDefined();
     });
+
 
     it("should return 400 if rawText is missing", async () => {
         const req = new Request("http://localhost", {
