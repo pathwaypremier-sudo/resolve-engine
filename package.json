@@ -20,7 +20,9 @@
     "prisma:linux:generate": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx prisma generate\"",
     "prisma:linux:migrate": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx prisma migrate dev\"",
     "prisma:linux:push": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx prisma db push\"",
-    "prisma:linux:smoke": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx tsx scripts/db-smoke-test.ts\""
+    "prisma:linux:smoke": "docker run --rm -v \"%cd%:/app\" -w /app node:20-bullseye bash -lc \"export DATABASE_URL=\\\"${DATABASE_URL:-$(grep DATABASE_URL .env | cut -d= -f2-)}\\\" && npm install && npx tsx scripts/db-smoke-test.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "autoprefixer": "^10.4.23",
@@ -35,7 +37,8 @@
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "stripe": "^20.3.0",
-    "tesseract.js": "^7.0.0"
+    "tesseract.js": "^7.0.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
@@ -52,6 +55,7 @@
     "eslint-config-next": "^14.2.35",
     "prisma": "^7.3.0",
     "tailwindcss": "^3.4.19",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.0.18"
   }
 }
