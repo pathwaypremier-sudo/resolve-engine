@@ -1,5 +1,5 @@
 
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock NextResponse
 const mockNextResponse = {
@@ -12,6 +12,8 @@ const mockNextResponse = {
 
 import { POST } from "./route";
 import * as adapter from "@/lib/brain/notebookLMAdapter.server";
+import * as auth from "@/lib/auth/session.server";
+import * as rateLimit from "@/lib/rateLimit";
 import type { EnforcementResult } from "@/lib/notebooklm-contract";
 
 vi.mock("next/server", () => ({
@@ -28,12 +30,109 @@ vi.mock("@/lib/brain/notebookLMAdapter.server", () => ({
     getSafeNotebookLMOutput: vi.fn(),
 }));
 
+vi.mock("@/lib/auth/session.server", () => ({
+    getActorIdFromRequest: vi.fn(),
+    unauthorizedResponse: vi.fn(() => ({
+        json: async () => ({ error: "Unauthorized" }),
+        status: 401,
+        ok: false,
+    })),
+}));
+
+vi.mock("@/lib/rateLimit", () => ({
+    enforceValidateRateLimit: vi.fn(),
+    rateLimitResponse: vi.fn(() => ({
+        json: async () => ({ ok: false, error: "too_many_requests" }),
+        status: 429,
+        ok: false,
+    })),
+}));
+
+vi.mock("@/lib/telemetry/log", () => ({
+    log: {
+        warn: vi.fn(),
+        info: vi.fn(),
+        error: vi.fn(),
+    },
+}));
+
 describe("POST /api/notebooklm/validate", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        // Default: authenticated user, rate limit OK
+        vi.spyOn(auth, "getActorIdFromRequest").mockReturnValue("test-actor-123");
+        vi.spyOn(rateLimit, "enforceValidateRateLimit").mockReturnValue({
+            ok: true,
+            ip: "127.0.0.1",
+            bucket: "12345",
+            count: 1,
+        });
+    });
+
+    it("should return 401 if user is not authenticated in production", async () => {
+        vi.stubEnv("NODE_ENV", "production");
+        vi.spyOn(auth, "getActorIdFromRequest").mockReturnValue(null);
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            body: JSON.stringify({ rawText: "test" }),
+        }) as any;
+
+        const res: any = await POST(req);
+        expect(res.status).toBe(401);
+        expect(await res.json()).toEqual({ error: "Unauthorized" });
+
+        vi.unstubAllEnvs();
+    });
+
+    it("should return 429 if rate limit is exceeded", async () => {
+        vi.spyOn(rateLimit, "enforceValidateRateLimit").mockReturnValue({
+            ok: false,
+            ip: "127.0.0.1",
+            bucket: "12345",
+            count: 21,
+        });
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            body: JSON.stringify({ rawText: "test" }),
+        }) as any;
+
+        const res: any = await POST(req);
+        expect(res.status).toBe(429);
+        expect(await res.json()).toEqual({ ok: false, error: "too_many_requests" });
+    });
+
+    it("should return 400 if rawText exceeds maximum length", async () => {
+        const longText = "a".repeat(40001); // Exceeds MAX_RAWTEXT_CHARS (40000)
+
+        const req = new Request("http://localhost", {
+            method: "POST",
+            body: JSON.stringify({ rawText: longText }),
+        }) as any;
+
+        const res: any = await POST(req);
+        expect(res.status).toBe(400);
+        const json = await res.json();
+        expect(json.error).toContain("exceeds maximum length");
+    });
+
+    it("should return 400 if caseId is not a string", async () => {
+        const req = new Request("http://localhost", {
+            method: "POST",
+            body: JSON.stringify({ rawText: "test", caseId: 123 }),
+        }) as any;
+
+        const res: any = await POST(req);
+        expect(res.status).toBe(400);
+        expect(await res.json()).toEqual({ error: "Invalid 'caseId': must be string" });
+    });
+
     it("should return 400 if rawText is missing", async () => {
         const req = new Request("http://localhost", {
             method: "POST",
             body: JSON.stringify({}),
-        });
+        }) as any;
 
         const res: any = await POST(req);
         expect(res.status).toBe(400);
@@ -60,7 +159,7 @@ describe("POST /api/notebooklm/validate", () => {
         const req = new Request("http://localhost", {
             method: "POST",
             body: JSON.stringify({ rawText: '{"some":"json"}' }),
-        });
+        }) as any;
 
         const res: any = await POST(req);
         expect(res.status).toBe(200);
@@ -90,7 +189,7 @@ describe("POST /api/notebooklm/validate", () => {
         const req = new Request("http://localhost", {
             method: "POST",
             body: JSON.stringify({ rawText: 'BAD CONTENT', caseId: "123" }),
-        });
+        }) as any;
 
         const res: any = await POST(req);
         expect(res.status).toBe(200);
