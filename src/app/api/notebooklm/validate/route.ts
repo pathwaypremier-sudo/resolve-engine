@@ -5,6 +5,7 @@ import type { EnforcementResult } from "@/lib/notebooklm-contract";
 import { getActorIdFromRequest, unauthorizedResponse } from "@/lib/auth/session.server";
 import { enforceValidateRateLimit, rateLimitResponse } from "@/lib/rateLimit";
 import { log } from "@/lib/telemetry/log";
+import { formatErrorResponse } from "@/lib/notebooklm-contract/errorCopy";
 
 export const runtime = "nodejs";
 
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
 
         // 3. Validate rawText
         if (!rawText || typeof rawText !== "string") {
-            return NextResponse.json({ error: "Missing or invalid 'rawText'" }, { status: 400 });
+            return NextResponse.json(formatErrorResponse("MISSING_INPUT"), { status: 400 });
         }
 
         if (rawText.length > MAX_RAWTEXT_CHARS) {
@@ -52,14 +53,12 @@ export async function POST(request: NextRequest) {
                 maxAllowed: MAX_RAWTEXT_CHARS,
                 actorId 
             });
-            return NextResponse.json({ 
-                error: `rawText exceeds maximum length of ${MAX_RAWTEXT_CHARS} characters` 
-            }, { status: 400 });
+            return NextResponse.json(formatErrorResponse("INPUT_TOO_LONG"), { status: 400 });
         }
 
         // 4. Validate caseId if provided
         if (caseId !== undefined && typeof caseId !== "string") {
-            return NextResponse.json({ error: "Invalid 'caseId': must be string" }, { status: 400 });
+            return NextResponse.json(formatErrorResponse("INVALID_CASE_ID"), { status: 400 });
         }
 
         const safeCaseId = typeof caseId === "string" ? caseId : undefined;
@@ -80,6 +79,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error) {
         log.error("Failed to process NotebookLM validation", error);
-        return NextResponse.json({ error: "Internal processing error" }, { status: 500 });
+        return NextResponse.json(formatErrorResponse("INTERNAL_ERROR"), { status: 500 });
     }
 }

@@ -19,6 +19,7 @@ import type {
     NotebookLMValidationFailureReason,
     NotebookLMFallbackMode,
 } from "./types";
+import { FALLBACK_COPY } from "./errorCopy";
 
 // ─── Section Keys ───────────────────────────────────────────────────
 
@@ -157,62 +158,17 @@ export function buildFallbackOutput(
     mode: NotebookLMFallbackMode,
     reason: NotebookLMValidationFailureReason
 ): NotebookLMOutput {
-    if (mode === "DO_NOT_PROCEED_NOTICE") {
-        return {
-            section_1_summary:
-                "The automated analysis could not produce a validated output for this case. " +
-                "This does not reflect on the merits of your situation.",
-            section_2_position:
-                "We are unable to provide a position assessment at this time. " +
-                "The system has determined that proceeding without professional review would not be appropriate.",
-            section_3_reasoning:
-                "The analysis output did not meet the required safety and quality standards. " +
-                `Validation failure reason: ${reason}. ` +
-                "This is a precautionary measure to ensure you receive accurate information.",
-            section_4_evidence_requests:
-                "Please retain all documents related to your case, including the original notice, " +
-                "any correspondence, photographs, and receipts. These may be needed for professional review.",
-            section_5_next_steps:
-                "We recommend seeking independent legal advice or contacting a relevant advisory service " +
-                "such as Citizens Advice (England & Wales) before taking any further action on this matter.",
-            section_6_risks_and_limits:
-                "This output was generated in safe mode due to a validation failure. " +
-                "It does not constitute legal advice and makes no promises about outcomes. " +
-                "Parking and motoring matters can have financial and legal consequences. " +
-                "Always verify information independently and consider seeking professional legal advice.",
-            metadata: {
-                contract_version: "v1",
-                generated_at_iso: new Date().toISOString(),
-                safe_mode_used: true,
-            },
-        };
-    }
+    const copy = mode === "DO_NOT_PROCEED_NOTICE" 
+        ? FALLBACK_COPY.DO_NOT_PROCEED 
+        : FALLBACK_COPY.SAFE_EXPLANATION;
 
-    // Default: SAFE_EXPLANATION_ONLY
     return {
-        section_1_summary:
-            "The automated analysis was unable to produce a fully validated result. " +
-            "A safe explanation has been generated instead.",
-        section_2_position:
-            "Based on the information available, a detailed position could not be determined. " +
-            "This may be due to incomplete data or a processing issue, not a reflection of your case merits.",
-        section_3_reasoning:
-            "The system applies strict validation to all generated content to ensure accuracy and safety. " +
-            `The output did not pass validation (reason: ${reason}). ` +
-            "This safe fallback has been provided to ensure you are not given unverified information.",
-        section_4_evidence_requests:
-            "To help with your case, please gather and retain all relevant documents: " +
-            "the original notice, any letters or emails exchanged, photographs of signage or location, " +
-            "and proof of any payments made.",
-        section_5_next_steps:
-            "You may wish to review your case details and try again, or seek guidance from " +
-            "an advisory service such as Citizens Advice. No action is required immediately " +
-            "unless a deadline is approaching on your notice.",
-        section_6_risks_and_limits:
-            "This output was generated in safe mode due to a validation failure. " +
-            "It does not constitute legal advice and makes no promises about outcomes. " +
-            "All information should be independently verified. " +
-            "Consider seeking professional legal advice for your specific circumstances.",
+        section_1_summary: copy.summary,
+        section_2_position: copy.position,
+        section_3_reasoning: copy.reasoning(reason),
+        section_4_evidence_requests: copy.evidenceRequests,
+        section_5_next_steps: copy.nextSteps,
+        section_6_risks_and_limits: copy.risksAndLimits,
         metadata: {
             contract_version: "v1",
             generated_at_iso: new Date().toISOString(),

@@ -114,7 +114,10 @@ describe("POST /api/notebooklm/validate", () => {
         const res: any = await POST(req);
         expect(res.status).toBe(400);
         const json = await res.json();
-        expect(json.error).toContain("exceeds maximum length");
+        expect(json.title).toBe("Input is too long");
+        expect(json.error).toBe("Input is too long");
+        expect(json.explanation).toBeDefined();
+        expect(json.nextStep).toBeDefined();
     });
 
     it("should return 400 if caseId is not a string", async () => {
@@ -125,7 +128,11 @@ describe("POST /api/notebooklm/validate", () => {
 
         const res: any = await POST(req);
         expect(res.status).toBe(400);
-        expect(await res.json()).toEqual({ error: "Invalid 'caseId': must be string" });
+        const json = await res.json();
+        expect(json.title).toBe("Case reference issue");
+        expect(json.error).toBe("Case reference issue");
+        expect(json.explanation).toBeDefined();
+        expect(json.nextStep).toBeDefined();
     });
 
     it("should return 400 if rawText is missing", async () => {
@@ -136,7 +143,11 @@ describe("POST /api/notebooklm/validate", () => {
 
         const res: any = await POST(req);
         expect(res.status).toBe(400);
-        expect(await res.json()).toEqual({ error: "Missing or invalid 'rawText'" });
+        const json = await res.json();
+        expect(json.title).toBe("Input required");
+        expect(json.error).toBe("Input required");
+        expect(json.explanation).toBeDefined();
+        expect(json.nextStep).toBeDefined();
     });
 
     it("should return validated result when rawText is valid", async () => {
