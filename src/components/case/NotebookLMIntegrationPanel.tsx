@@ -67,8 +67,11 @@ export default function NotebookLMIntegrationPanel({ input, result, isDownloadin
                         <div className="flex items-start justify-between">
                             <div>
                                 <p className="text-sm text-zinc-600">
-                                    Download a specialized "Source Pack" to use with Google NotebookLM.
-                                    This enables you to chat with your case evidence and generate additional drafts.
+                                    Download a source pack to use with Google NotebookLM.
+                                    Use this pack with Google NotebookLM to explore your evidence and generate drafts.
+                                </p>
+                                <p className="text-xs text-zinc-500 mt-2">
+                                    Drafts are guidance. Outcomes depend on the authority’s process and evidence.
                                 </p>
                             </div>
                         </div>
@@ -129,9 +132,9 @@ export default function NotebookLMIntegrationPanel({ input, result, isDownloadin
 
                     {/* 2. Paste & Validate Section */}
                     <div>
-                        <h3 className="text-sm font-semibold text-zinc-900 mb-2">Import & Validate Draft</h3>
+                        <h3 className="text-sm font-semibold text-zinc-900 mb-2">Validate Draft</h3>
                         <p className="text-sm text-zinc-600 mb-3">
-                            Paste the JSON output from NotebookLM below. We will validate it against our safety rules.
+                            Paste the JSON output from NotebookLM below. We will validate format and safety.
                         </p>
 
                         {!validationResult ? (
@@ -166,10 +169,10 @@ export default function NotebookLMIntegrationPanel({ input, result, isDownloadin
                                     <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
                                         <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                                         <div>
-                                            <h4 className="text-sm font-semibold text-amber-900">Safe Mode Activated</h4>
+                                            <h4 className="text-sm font-semibold text-amber-900">Safety Fallback Active</h4>
                                             <p className="text-sm text-amber-800 mt-1">
-                                                We couldn't safely use the provided draft (Reason: {validationResult.reason}).
-                                                Showing a safe, deterministic fallback instead.
+                                                The draft content could not be fully validated (Reason: {validationResult.reason}).
+                                                A standard fallback version is shown below.
                                             </p>
                                         </div>
                                     </div>
@@ -179,7 +182,7 @@ export default function NotebookLMIntegrationPanel({ input, result, isDownloadin
                                         <div>
                                             <h4 className="text-sm font-semibold text-emerald-900">Draft Validated</h4>
                                             <p className="text-sm text-emerald-800 mt-1">
-                                                The content follows all safety rules and schema requirements.
+                                                The content has been verified and is ready for use.
                                             </p>
                                         </div>
                                     </div>
