@@ -35,11 +35,10 @@ async function navigateIntakeWizard(page: import('@playwright/test').Page) {
 
   await expect(page).toHaveURL(/\/$/);
 
-  // Step 1: Start - click Continue
-  await page.getByRole('button', { name: /continue/i }).click();
+  // Step 1: Start - Select "I don't have evidence" (skips upload)
+  await page.getByRole('button', { name: /i don’t have evidence/i }).click();
 
-  // Step 2: Upload - skip, click Continue  
-  await page.getByRole('button', { name: /continue/i }).click();
+  // Step 2: Upload is skipped, proceed to issuer selection
 
   // Step 3: Select issuer
   await page.getByRole('button', { name: new RegExp(FIXTURE_CASE_DATA.issuer, 'i') }).click();
@@ -67,8 +66,8 @@ async function navigateIntakeWizard(page: import('@playwright/test').Page) {
   // Wait for assessment page
   await expect(page).toHaveURL(/\/intake\?case=/);
   await expect(
-  page.getByRole('heading', { name: 'Assessment', exact: true })
-).toBeVisible({ timeout: 15000 });
+    page.getByRole('heading', { name: 'Assessment', exact: true })
+  ).toBeVisible({ timeout: 15000 });
 
 
 }

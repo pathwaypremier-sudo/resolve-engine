@@ -21,14 +21,15 @@ test.describe('Core User Journey - Smoke Test', () => {
 
     // Step 3: Verify intake page loaded
     await expect(page).toHaveURL(/\/intake/);
-    await expect(page.getByText(/check your parking ticket/i)).toBeVisible();
+    await expect(page.getByText(/how would you like to start/i)).toBeVisible();
 
-    // Step 4: Click Continue to move past start step 
-    // (manual entry is via the Continue button, not a separate button)
-    await page.getByRole('button', { name: /continue/i }).click();
+    // Step 4: Select "I don't have evidence" to bypass upload
+    // This allows testing the manual flow without file upload
+    await page.getByRole('button', { name: /i don’t have evidence/i }).click();
 
-    // Step 5: Skip upload step - click Continue
-    await page.getByRole('button', { name: /continue/i }).click();
+    // Step 5: Verify upload step is skipped and we are on issuer selection
+    // Previous flow had separate continue click; new flow jumps straight to issuer
+    // So we proceed directly to issuer selection
 
     // Step 6: Select issuer - "Private parking company" 
     await page.getByRole('button', { name: /private parking company/i }).click();
@@ -64,8 +65,8 @@ test.describe('Core User Journey - Smoke Test', () => {
     // Step 13: Wait for page to stabilize and look for assessment content
     await page.waitForLoadState('networkidle');
     await expect(
-  page.getByRole('heading', { name: 'Assessment', exact: true })
-).toBeVisible({ timeout: 15000 });
+      page.getByRole('heading', { name: 'Assessment', exact: true })
+    ).toBeVisible({ timeout: 15000 });
 
 
 

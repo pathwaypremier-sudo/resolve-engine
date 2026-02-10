@@ -40,6 +40,7 @@ type IntakeState = {
     issueDate: string;
     reg: string;
     reference?: string; // Add reference to state to hold PCN number
+    intakeMode?: "EVIDENCE_FIRST" | "NO_EVIDENCE";
 };
 
 const initialState: IntakeState = {
@@ -164,6 +165,16 @@ function IntakeWizard() {
     const [isExtracting, setIsExtracting] = useState(false);
     const [extractionResult, setExtractionResult] = useState<ExtractedFacts | undefined>(undefined);
 
+    // Dynamic steps based on intake mode
+    // If NO_EVIDENCE, we skip the upload step entirely
+    const steps: StepId[] = useMemo(() => {
+        if (data.intakeMode === "NO_EVIDENCE") {
+            return ["start", "issuer", "noticeType", "dates", "vehicle", "summary"];
+        }
+        // Default (EVIDENCE_FIRST) or undefined
+        return ["start", "upload", "issuer", "noticeType", "dates", "vehicle", "summary"];
+    }, [data.intakeMode]);
+
     // 1. Ensure Case ID exists
     useEffect(() => {
         if (!caseId) {
@@ -217,19 +228,8 @@ function IntakeWizard() {
         }
     }, [data, caseId, isPreparing]);
 
-    // Steps array - must be declared before any early returns to satisfy Rules of Hooks
-    const steps: StepId[] = useMemo(
-        () => [
-            "start",
-            "upload",
-            "issuer",
-            "noticeType",
-            "dates",
-            "vehicle",
-            "summary",
-        ],
-        []
-    );
+    // Steps array - REMOVED static definition
+
 
     // Early return for loading state - AFTER all hooks are declared
     if (isPreparing) {
@@ -267,14 +267,14 @@ function IntakeWizard() {
         (step === "vehicle" && data.reg.trim().length < 5);
 
     const getTitle = () => {
-        if (step === "start") return "Check Your Parking Ticket";
+        if (step === "start") return "How would you like to start?";
         if (step === "summary") return "Review before you proceed";
         return "A few details first";
     };
 
     const getSubtitle = () => {
         if (step === "start")
-            return "A structured intake that stays calm under pressure. One step at a time.";
+            return "We can scan your notice to help you, or you can enter details manually.";
         if (step === "upload")
             return "You can upload a document now if you have it to hand. This is optional.";
         if (step === "issuer")
@@ -317,45 +317,56 @@ function IntakeWizard() {
             </div>
 
             {step === "start" && (
-                <div className="space-y-4">
-                    <p className="text-sm leading-relaxed text-zinc-600">
-                        Start with what you have. If you are not sure about something,
-                        select &quot;Not sure&quot;. You can upload documents now or later.
-                    </p>
-
+                <div className="space-y-6">
+                    {/* Primary Option: Evidence First */}
                     <button
-                        onClick={() => router.push(`/app/case/${caseId}/intake/scan`)}
-                        className="w-full rounded-xl border border-zinc-200 bg-white p-4 text-left hover:bg-zinc-50 transition-colors group"
+                        onClick={() => {
+                            setData(d => ({ ...d, intakeMode: "EVIDENCE_FIRST" }));
+                            setStep("upload");
+                        }}
+                        className="w-full rounded-xl border border-zinc-200 bg-white p-5 text-left hover:bg-zinc-50 hover:border-zinc-300 transition-all group shadow-sm"
                     >
-                        <div className="flex items-center gap-3">
-                            <div className="h-10 w-10 shrink-0 rounded-full bg-zinc-900 text-white flex items-center justify-center">
-                                <ScanText className="h-5 w-5" />
+                        <div className="flex items-start gap-4">
+                            <div className="h-10 w-10 shrink-0 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+                                <Upload className="h-5 w-5" />
                             </div>
-                            <div>
-                                <p className="font-semibold text-zinc-900 group-hover:text-zinc-700">Scan a notice to get started</p>
-                                <p className="text-sm text-zinc-500">Upload a photo to auto-detect details (Optional)</p>
+                            <div className="flex-1">
+                                <p className="font-semibold text-zinc-900 group-hover:text-zinc-700">Upload your notice or evidence</p>
+                                <p className="text-sm text-zinc-600 mt-1 leading-relaxed">
+                                    We’ll use what you upload to guide the assessment. You can add more later.
+                                </p>
                             </div>
+                            <ArrowRight className="h-5 w-5 text-zinc-300 group-hover:text-zinc-500 mt-2" />
                         </div>
                     </button>
 
-                    <div className="relative py-2">
-                        <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                            <div className="w-full border-t border-zinc-100" />
+                    {/* Secondary Option: No Evidence */}
+                    <button
+                        onClick={() => {
+                            setData(d => ({ ...d, intakeMode: "NO_EVIDENCE" }));
+                            // Directly skip upload step
+                            setStep("issuer");
+                        }}
+                        className="w-full rounded-xl border border-zinc-200 bg-white p-5 text-left hover:bg-zinc-50 hover:border-zinc-300 transition-all group shadow-sm"
+                    >
+                        <div className="flex items-start gap-4">
+                            <div className="h-10 w-10 shrink-0 rounded-full bg-zinc-100 text-zinc-500 flex items-center justify-center border border-zinc-200">
+                                <ScanText className="h-5 w-5" />
+                            </div>
+                            <div className="flex-1">
+                                <p className="font-semibold text-zinc-900 group-hover:text-zinc-700">I don’t have evidence</p>
+                                <p className="text-sm text-zinc-600 mt-1 leading-relaxed">
+                                    You can still proceed. We’ll ask more questions and confidence may be lower.
+                                </p>
+                            </div>
+                            <ArrowRight className="h-5 w-5 text-zinc-300 group-hover:text-zinc-500 mt-2" />
                         </div>
-                        <div className="relative flex justify-center">
-                            <span className="bg-white px-2 text-xs font-medium text-zinc-400">OR ENTER MANUALLY</span>
-                        </div>
-                    </div>
-                    <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-                        <p className="font-medium text-zinc-900">What happens next</p>
-                        <ul className="mt-2 list-disc space-y-1 pl-5">
-                            <li>We collect key facts in a structured way</li>
-                            <li>You review/edit before proceeding</li>
-                            <li>
-                                Then you choose Appeal Builder, Managed, Premium, or Annual
-                                Access
-                            </li>
-                        </ul>
+                    </button>
+
+                    <div className="text-center pt-2">
+                        <p className="text-xs text-zinc-400">
+                            Provide as much as you can for the best result.
+                        </p>
                     </div>
                 </div>
             )}
