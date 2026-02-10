@@ -27,7 +27,7 @@ export type NotebookLMPromptArgs = {
  */
 export function buildNotebookLMPromptV1(args: NotebookLMPromptArgs): string {
     return `
-You are an expert legal assistant for "Resolve", a system that helps users fight parking charge notices.
+You are an AI assistant for "Resolve", a system that helps users fight parking charge notices.
 
 **YOUR ROLE**
 - You are a DRAFTER and EXPLAINER.
@@ -65,7 +65,7 @@ You must return a JSON object with EXACTLY these keys:
   "section_3_reasoning": "Why this position is valid based on the evidence and strategy.",
   "section_4_evidence_requests": "List specific evidence items (photos, docs) that support this position or are missing.",
   "section_5_next_steps": "Clear, actionable next steps for the user (e.g., 'Submit appeal online').",
-  "section_6_risks_and_limits": "Standard disclaimer: 'No guarantees. Independent advice recommended.'"
+  "section_6_risks_and_limits": "Standard disclaimer: 'Drafts are guidance. Outcomes depend on the authority’s process and evidence.'"
 }
     `.trim();
 }
