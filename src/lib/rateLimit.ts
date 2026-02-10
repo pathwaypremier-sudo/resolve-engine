@@ -88,6 +88,14 @@ export function enforcePackDownloadRateLimit(req: NextRequest): RateLimitResult 
 }
 
 /**
+ * Enforce rate limit for validate requests.
+ * Limit: 20 per minute per IP (validation is lighter than pack generation)
+ */
+export function enforceValidateRateLimit(req: NextRequest): RateLimitResult {
+    return enforceRateLimit(req, "validate", 20);
+}
+
+/**
  * Helper to return 429 rate limit response.
  */
 export function rateLimitResponse(): NextResponse {
