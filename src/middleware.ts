@@ -5,7 +5,8 @@ export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
     // Only protect /app routes
-    if (!pathname.startsWith("/app")) {
+    // Exception: Allow access to /app/case/[id]/assessment for preview support (P1a)
+    if (!pathname.startsWith("/app") || pathname.match(/^\/app\/case\/[^/]+\/assessment$/)) {
         return NextResponse.next();
     }
 

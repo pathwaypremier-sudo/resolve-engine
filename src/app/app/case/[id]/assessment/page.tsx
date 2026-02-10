@@ -63,6 +63,7 @@ export default function AssessmentPage() {
 
     const [isDownloading, setIsDownloading] = useState(false);
     const [showPackInstructions, setShowPackInstructions] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
 
     async function handleDownloadPack() {
         if (!input) return;
@@ -128,14 +129,21 @@ export default function AssessmentPage() {
                     // 2. Run assessment engine
                     const assessmentResult = await runAssessment(assessmentInput);
 
-                    // 3. Persist result
-                    // We need an identity for the user.
-                    // Since we are client-side, we can get it from the persistence adapter wrapper or stubAuth directly
-                    const identity = getOrCreateStubIdentity();
+                    // 3. Persist result ONLY if authenticated
+                    const isAuthed = document.cookie.split("; ").some(c => c.trim().startsWith("re_authed=1"));
+                    setIsAuthenticated(isAuthed);
 
-                    // Fire and forget save (or await if critical)
-                    saveAssessmentResultAction(caseId, assessmentResult, identity.actorId)
-                        .then(ok => console.log(ok ? "[AssessmentPage] Saved result to DB" : "[AssessmentPage] Failed to save result"));
+                    if (isAuthed) {
+                        // We need an identity for the user.
+                        // Since we are client-side, we can get it from the persistence adapter wrapper or stubAuth directly
+                        const identity = getOrCreateStubIdentity();
+
+                        // Fire and forget save (or await if critical)
+                        saveAssessmentResultAction(caseId, assessmentResult, identity.actorId)
+                            .then(ok => console.log(ok ? "[AssessmentPage] Saved result to DB" : "[AssessmentPage] Failed to save result"));
+                    } else {
+                        console.log("[AssessmentPage] Unauthenticated - skipping DB save");
+                    }
 
                     if (mounted) {
                         setInput(assessmentInput);
@@ -378,13 +386,13 @@ export default function AssessmentPage() {
                             </p>
                             <div className="mt-3 flex flex-wrap gap-3">
                                 <Link
-                                    href={`/app/case/${caseId}/checkout`}
+                                    href={isAuthenticated ? `/app/case/${caseId}/checkout` : `/signin?next=${encodeURIComponent(`/app/case/${caseId}/checkout`)}&reason=save`}
                                     className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
                                 >
                                     Choose service tier
                                 </Link>
                                 <Link
-                                    href={`/app/case/${caseId}/deliver`}
+                                    href={isAuthenticated ? `/app/case/${caseId}/deliver` : `/signin?next=${encodeURIComponent(`/app/case/${caseId}/deliver`)}&reason=save`}
                                     className="rounded-lg border border-zinc-200 px-4 py-2 text-sm hover:bg-zinc-50"
                                 >
                                     Go to deliverables
